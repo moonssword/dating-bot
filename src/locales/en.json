@@ -1,0 +1,16 @@
+{
+	"welcome_message": "Welcome to the new acquaintances application!",
+	"registration_button": "📝 Registration",
+	"choose_language": "Choose your language:",
+	"select_english": "🇬🇧 English",
+	"select_russian": "🇷🇺 Русский",
+	"select_language_text": "You have selected the 🇬🇧 English language.",
+	"select_gender": "Specify your gender:",
+	"select_male": "🧑🏻 Male",
+	"select_female": "👩🏻 Female",
+	"gender_selected_male": "You select 🧑🏻 female gender.",
+	"gender_selected_female": "You select 👩🏻 male gender.",
+	"request_location_or_city": "🗺 Enter your locality or send a geolocation for automatic detection",
+	"send_location": "📍 Send location",
+	"location_notification": "You are in"
+}

@@ -1,0 +1,16 @@
+{
+	"welcome_message": "Добро пожаловать в приложение для новых знакомств!",
+	"registration_button": "📝 Регистрация",
+	"choose_language": "Выберите ваш язык:",
+	"select_english": "🇬🇧 English",
+	"select_russian": "🇷🇺 Русский",
+	"select_language_text": "Вы выбрали 🇷🇺 Русский язык.",
+	"select_gender": "Укажите ваш пол:",
+	"select_male": "🧑🏻 Мужской",
+	"select_female": "👩🏻 Женский",
+	"gender_selected_male": "Вы выбрали 🧑🏻 Мужской пол.",
+	"gender_selected_female": "Вы выбрали 👩🏻 Женский пол.",
+	"request_location_or_city": "🗺 Укажите ваш город или отправьте геолокацию для автоматического определения",
+	"send_location": "📍 Отправить локацию",
+	"location_notification": "Вы находитесь в"
+}
