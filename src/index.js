@@ -2,7 +2,7 @@ require('dotenv').config();
 const i18n = require('i18n');
 const TelegramBot = require('node-telegram-bot-api');
 const mongoose = require('mongoose');
-const {   getFromLocation, getFromCityName } = require('./locationModule');
+const {   getFromLocation, getFromCityName } = require('./locationHandler');
 const { handleBirthday } = require('./birthdayHandler');
 
 // Подключение к базе данных MongoDB
@@ -135,117 +135,124 @@ bot.onText(/\/start/, async (msg) => {
   });
 });
 
-const userStates = new Map(); // Добавим переменную состояния (state)
+const userStates = new Map(); // Переменная состояния регистрации(state)
 
-bot.on('callback_query', async (callbackQuery) => { // Обработка нажатия на кнопку "Регистрация"
+bot.on('callback_query', async (callbackQuery) => { // Обработчик inline кнопок
   const chatId = callbackQuery.message.chat.id;
   const messageId = callbackQuery.message.message_id;
   const userId = callbackQuery.from.id;
   const data = callbackQuery.data;
 
   try {
-    if (data === 'registration') {
-      // Обработка нажатия на кнопку "Регистрация"
-      bot.deleteMessage(chatId, messageId);
-      bot.sendMessage(chatId, i18n.__('choose_language'), {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: i18n.__('select_english'), callback_data: 'select_language_en' },
-              { text: i18n.__('select_russian'), callback_data: 'select_language_ru' },
+    switch (true) {
+      case 'registration' === data:        // Обработка нажатия на кнопку "Регистрация"
+        bot.deleteMessage(chatId, messageId);
+        bot.sendMessage(chatId, i18n.__('choose_language'), {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: i18n.__('select_english'), callback_data: 'select_language_en' },
+                { text: i18n.__('select_russian'), callback_data: 'select_language_ru' },
+              ],
             ],
-          ],
-        },
-      });
-    } else if (data === 'select_language_en' || data === 'select_language_ru') {        // Обработка выбора языка
-      const language = data === 'select_language_en' ? 'en' : 'ru';
-      i18n.setLocale(language);
-      const languageText = i18n.__('select_language_text');
-
-      const updatedUser = await User.findOneAndUpdate(
-        { telegramId: userId },
-        { languageCode: language },
-        { new: true }
-      );
-
-      console.log('User language updated:', updatedUser);
-
-      bot.answerCallbackQuery(callbackQuery.id, languageText);
-      bot.deleteMessage(chatId, messageId);
-
-      bot.sendMessage(chatId, i18n.__('select_gender'), {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: i18n.__('select_male'), callback_data: 'select_male' },
-              { text: i18n.__('select_female'), callback_data: 'select_female' },
-            ],
-          ],
-        },
-      });
-    } else if (data === 'select_male' || data === 'select_female') {        // Обработка выбора пола
-      const gender = data === 'select_male' ? 'male' : 'female';
-      const genderText = gender === 'male' ? i18n.__('gender_selected_male') : i18n.__('gender_selected_female');
-
-      const updatedProfile = await Profile.findOneAndUpdate(
-        { telegramId: userId },
-        { gender: gender },
-        { new: true }
-      );
-
-      console.log('User gender updated:', updatedProfile);
-
-      bot.answerCallbackQuery(callbackQuery.id, genderText);
-      bot.deleteMessage(chatId, messageId);
-
-      bot.sendMessage(chatId, i18n.__('request_location_or_city'), {
-        reply_markup: {
-          keyboard: [
-            [
-              { text: i18n.__('send_location'), request_location: true },
-            ],
-          ],
-          resize_keyboard: true,
-        },
-      });
-      userStates.set(userId, 'select_city');
-
-    } else {        // Обработка выбора города из списка или других дополнительных действий
-      const parsedData = JSON.parse(data);
-
-      if (parsedData) {
-        const { locationId, cityIndex } = parsedData;
-        const locationData = locationDataMap.get(locationId);
-
-        if (!locationData || locationData.length <= cityIndex) {
-          bot.sendMessage(chatId, 'Произошла ошибка, город не найден.');
-          return;
-        }
-
-        const selectedCity = locationData[cityIndex];
-
-        const updatedProfile = await Profile.findOneAndUpdate(
-          { telegramId: userId },
-          {
-            'location.locality': selectedCity.locality || '',
-            'location.display_name': selectedCity.display_name || '',
-            'location.type': selectedCity.type || '',
-            'location.state': selectedCity.state || '',
-            'location.country': selectedCity.country || '',
-            'location.latitude': selectedCity.latitude,
-            'location.longitude': selectedCity.longitude,
           },
+        });
+        break;
+      case 'select_language_en' === data:        // Обработка выбора языка
+      case 'select_language_ru' === data:
+        const language = data === 'select_language_en' ? 'en' : 'ru';
+        i18n.setLocale(language);
+        const languageText = i18n.__('select_language_text');
+
+        const updatedUser = await User.findOneAndUpdate(
+          { telegramId: userId },
+          { languageCode: language },
           { new: true }
         );
 
-        console.log('User location updated:', updatedProfile);
+        console.log('User language updated:', updatedUser);
 
-        bot.answerCallbackQuery(callbackQuery.id, `${i18n.__('location_notification')} ${selectedCity.display_name}`);
+        bot.answerCallbackQuery(callbackQuery.id, languageText);
         bot.deleteMessage(chatId, messageId);
 
-        bot.sendMessage(chatId, i18n.__('enter_birthday'));  //Текст ввода даты рождения
-        userStates.set(userId, 'select_birthday');
-      }
+        bot.sendMessage(chatId, i18n.__('select_gender'), {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: i18n.__('select_male'), callback_data: 'select_male' },
+                { text: i18n.__('select_female'), callback_data: 'select_female' },
+              ],
+            ],
+          },
+        });
+        break;
+      case 'select_male' === data:        // Обработка выбора пола
+      case 'select_female' === data:
+        const gender = data === 'select_male' ? 'male' : 'female';
+        const genderText = gender === 'male' ? i18n.__('gender_selected_male') : i18n.__('gender_selected_female');
+
+        const updatedProfile = await Profile.findOneAndUpdate(
+          { telegramId: userId },
+          { gender: gender },
+          { new: true }
+        );
+
+        console.log('User gender updated:', updatedProfile);
+
+        bot.answerCallbackQuery(callbackQuery.id, genderText);
+        bot.deleteMessage(chatId, messageId);
+
+        bot.sendMessage(chatId, i18n.__('request_location_or_city'), {
+          reply_markup: {
+            keyboard: [
+              [
+                { text: i18n.__('send_location'), request_location: true },
+              ],
+            ],
+            resize_keyboard: true,
+          },
+        });
+        userStates.set(userId, 'select_city');
+        break;
+
+      case 'locationId' in JSON.parse(data):        // Обработка выбора города
+        const parsedData = JSON.parse(data);
+        if (parsedData) {
+          const { locationId, cityIndex } = parsedData;
+          const locationData = locationDataMap.get(locationId);
+          console.log(parsedData);
+
+          if (!locationData || locationData.length <= cityIndex) {
+            bot.sendMessage(chatId, 'Произошла ошибка, город не найден.');
+            return;
+          }
+
+          const selectedCity = locationData[cityIndex];
+
+          const updatedProfile = await Profile.findOneAndUpdate(
+            { telegramId: userId },
+            {
+              'location.locality': selectedCity.locality || '',
+              'location.display_name': selectedCity.display_name || '',
+              'location.type': selectedCity.type || '',
+              'location.state': selectedCity.state || '',
+              'location.country': selectedCity.country || '',
+              'location.latitude': selectedCity.latitude,
+              'location.longitude': selectedCity.longitude,
+            },
+            { new: true }
+          );
+
+          console.log('User location updated:', updatedProfile);
+
+          bot.answerCallbackQuery(callbackQuery.id, `${i18n.__('location_notification')} ${selectedCity.display_name}`);
+          bot.deleteMessage(chatId, messageId);
+
+          bot.sendMessage(chatId, i18n.__('enter_birthday')) // Текст ввода даты рождения
+          userStates.set(userId, 'select_birthday');
+        }
+        break;
+      //default:
     }
   } catch (err) {
     console.error('Ошибка:', err);
@@ -253,7 +260,7 @@ bot.on('callback_query', async (callbackQuery) => { // Обработка наж
   }
 });
 
-bot.on('message', async (msg) => {
+bot.on('message', async (msg) => {  // Обработчик сообщений от пользователя
   const userId = msg.from.id;
   const locationMessage = msg.location;
   const cityName = msg.text;
@@ -291,8 +298,8 @@ bot.on('message', async (msg) => {
         await getFromCityName(cityName, bot, chatId, locationDataMap);
       }
       break;
-    case 'select_birthday':
-      await handleBirthday(bot, userStates, Profile, i18n, msg);  // Обработка ввода даты рождения
+    case 'select_birthday':  // Обработка ввода даты рождения
+      await handleBirthday(bot, userStates, Profile, i18n, msg);
       break;
     //default:
   }

@@ -17,5 +17,6 @@
 	"enter_birthday": "🥳 Please, enter your date of birth \n (dd.mm.yyyy or dd/mm/yyyy)",
 	"invalid_birthday_format": "⚠️ Invalid date format",
 	"birthday_saved": "✅ Date of birth saved",
-	"birthday_not_saved": "❎ Date of birth not saved"	
+	"birthday_not_saved": "❎ Date of birth not saved",
+	"request_photo_message_text": "📸 Please, send your photo"
 }
