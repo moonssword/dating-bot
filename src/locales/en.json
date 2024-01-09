@@ -12,5 +12,10 @@
 	"gender_selected_female": "You select 👩🏻 male gender.",
 	"request_location_or_city": "🗺 Enter your locality or send a geolocation for automatic detection",
 	"send_location": "📍 Send location",
-	"location_notification": "You are in"
+	"list_of_cities": "📍 Choose your city:",
+	"location_notification": "🗺📍 You are in ",
+	"enter_birthday": "🥳 Please, enter your date of birth \n (dd.mm.yyyy or dd/mm/yyyy)",
+	"invalid_birthday_format": "⚠️ Invalid date format",
+	"birthday_saved": "✅ Date of birth saved",
+	"birthday_not_saved": "❎ Date of birth not saved"	
 }

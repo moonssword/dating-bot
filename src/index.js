@@ -3,6 +3,7 @@ const i18n = require('i18n');
 const TelegramBot = require('node-telegram-bot-api');
 const mongoose = require('mongoose');
 const {   getFromLocation, getFromCityName } = require('./locationModule');
+const { handleBirthday } = require('./birthdayHandler');
 
 // Подключение к базе данных MongoDB
 mongoose.connect('mongodb://localhost:27017/userdata', {
@@ -54,6 +55,7 @@ const profileSchema = new mongoose.Schema({
   telegramId: Number,
   gender: String,
   birthday: Date,
+  age: Number,
   interests: String,
   location: {
     locality: String,
@@ -133,6 +135,8 @@ bot.onText(/\/start/, async (msg) => {
   });
 });
 
+const userStates = new Map(); // Добавим переменную состояния (state)
+
 bot.on('callback_query', async (callbackQuery) => { // Обработка нажатия на кнопку "Регистрация"
   const chatId = callbackQuery.message.chat.id;
   const messageId = callbackQuery.message.message_id;
@@ -204,6 +208,8 @@ bot.on('callback_query', async (callbackQuery) => { // Обработка наж
           resize_keyboard: true,
         },
       });
+      userStates.set(userId, 'select_city');
+
     } else {        // Обработка выбора города из списка или других дополнительных действий
       const parsedData = JSON.parse(data);
 
@@ -234,8 +240,11 @@ bot.on('callback_query', async (callbackQuery) => { // Обработка наж
 
         console.log('User location updated:', updatedProfile);
 
-        bot.answerCallbackQuery(callbackQuery.id, `Выбран город: ${selectedCity.display_name}`);
+        bot.answerCallbackQuery(callbackQuery.id, `${i18n.__('location_notification')} ${selectedCity.display_name}`);
         bot.deleteMessage(chatId, messageId);
+
+        bot.sendMessage(chatId, i18n.__('enter_birthday'));  //Текст ввода даты рождения
+        userStates.set(userId, 'select_birthday');
       }
     }
   } catch (err) {
@@ -244,40 +253,47 @@ bot.on('callback_query', async (callbackQuery) => { // Обработка наж
   }
 });
 
-bot.on('message', async (msg) => {  // Обработка полученной локации или названия города
+bot.on('message', async (msg) => {
   const userId = msg.from.id;
   const locationMessage = msg.location;
   const cityName = msg.text;
   const chatId = msg.chat.id;
 
-  if (locationMessage) {
-    // Если получена локация, обработать её
-    try {
-      const { locality, type, state, country } = await getFromLocation(userId, locationMessage, bot);
-
-      // Обновление профиля пользователя с полученным местоположением
-      const updatedProfile = await Profile.findOneAndUpdate(
-        { telegramId: userId },
-        {
-          'location.locality': locality,
-          'location.type': type,
-          'location.state': state,
-          'location.country': country,
-          'location.latitude': locationMessage.latitude,
-          'location.longitude': locationMessage.longitude,
-        },
-        { new: true }
-      );
-
-      console.log('User location updated:', updatedProfile);
-
-      // Здесь можно вызвать внешний модуль для дальнейшей обработки местоположения
-      // externalModule.processLocation(updatedProfile);
-    } catch (err) {
-      console.error('Error updating user location:', err);
-    }
-  } else if(cityName) {
-    // Если получено сообщение с текстом (название города), обработать его
-    await getFromCityName(cityName, bot, chatId, locationDataMap);
+  // Получаем текущее состояние пользователя
+  const currentState = userStates.get(userId);
+  switch (currentState) {
+    case 'select_city':   // Обработка полученной локации или названия города
+      if (locationMessage) {
+        // Если получена локация, обработать её
+        try {
+          const { locality, type, state, country } = await getFromLocation(userId, locationMessage, bot);
+          // Обновление профиля пользователя с полученным местоположением
+          const updatedProfile = await Profile.findOneAndUpdate(
+            { telegramId: userId },
+            {
+              'location.locality': locality,
+              'location.type': type,
+              'location.state': state,
+              'location.country': country,
+              'location.latitude': locationMessage.latitude,
+              'location.longitude': locationMessage.longitude,
+            },
+            { new: true }
+          );
+          console.log('User location updated:', updatedProfile);
+          // Здесь можно вызвать внешний модуль для дальнейшей обработки местоположения
+          // externalModule.processLocation(updatedProfile);
+        } catch (err) {
+          console.error('Error updating user location:', err);
+        }
+      } else if(cityName) {
+        // Если получено сообщение с текстом (название города), обработать его
+        await getFromCityName(cityName, bot, chatId, locationDataMap);
+      }
+      break;
+    case 'select_birthday':
+      await handleBirthday(bot, userStates, Profile, i18n, msg);  // Обработка ввода даты рождения
+      break;
+    //default:
   }
 });

@@ -1,5 +1,13 @@
 // locationModule.js
 const axios = require('axios');
+const i18n = require('i18n');
+
+i18n.configure({
+  locales: ['en', 'ru'], // Доступные языки
+  directory: __dirname + '/locales', // Путь к файлам перевода
+  defaultLocale: 'ru', // Язык по умолчанию
+  objectNotation: true, // Использование объектной нотации для строк
+});
 
 function generateUniqueID() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -59,7 +67,7 @@ async function getFromCityName(cityName, bot, chatId, locationDataMap) {
         ]),
       };
 
-      bot.sendMessage(chatId, 'Найдены города с таким названием:', {
+      bot.sendMessage(chatId, i18n.__('list_of_cities'), {
         reply_markup: keyboard,
       });
     }
