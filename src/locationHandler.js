@@ -19,11 +19,12 @@ async function getFromLocation(chatId, locationMessage, bot) {
     const locationData = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`);
     
     const locality = locationData.data.address.city || locationData.data.address.town || locationData.data.address.village || locationData.data.address.hamlet;
+    const display_name = locationData.data.display_name;
     const state = locationData.data.address.state;
     const country = locationData.data.address.country;
     const type = locationData.data.type;
 
-return { locality, type, state, country };
+return { locality, display_name, type, state, country };
   } catch (err) {
     console.error('Ошибка:', err);
   return err;

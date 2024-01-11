@@ -1,5 +1,6 @@
 {
-	"welcome_message": "Welcome to the new acquaintances application!",
+	"registration_message": "Welcome to the new acquaintances application!",
+	"welcome_message": "Here you can see 🎯 new candidates, 💘mutual likes or change your profile settings \n Have a question? Official Flirty Support 👉",
 	"registration_button": "📝 Registration",
 	"choose_language": "Choose your language:",
 	"select_english": "🇬🇧 English",
@@ -14,9 +15,16 @@
 	"send_location": "📍 Send location",
 	"list_of_cities": "📍 Choose your city:",
 	"location_notification": "🗺📍 You are in ",
-	"enter_birthday": "🥳 Please, enter your date of birth \n (dd.mm.yyyy or dd/mm/yyyy)",
+	"enter_birthday": "🥳 Please, enter your date of birth \n\n (DD.MM.YYYY or DD/MM/YYYY)",
 	"invalid_birthday_format": "⚠️ Invalid date format",
 	"birthday_saved": "✅ Date of birth saved",
 	"birthday_not_saved": "❎ Date of birth not saved",
-	"request_photo_message_text": "📸 Please, send your photo"
+	"request_photo_message_text": "📸 Please, send your photo\n\n 📎 Click on the paper clip and attach the photo",
+	"wrong_photo_format": "⚠️ Wrong photo format\n\n Please, send correct photo",
+	"photo_rejected_message": "⚠️ The uploaded photo was rejected\n\n Please, upload another photo",
+	"photo_checking_message": "⌛️ Please wait. Your photo is being checked... ",
+	"photo_verified_message": "✅ Congratulations! Your photo has been successfully verified",
+	"confirm_agreement_message": "By clicking continue, you confirm\n that you accept the User Agreement and the Privacy\n Policy",
+	"confirm_agreement_link": "Read agreement",
+	"confirm_agreement_button": "Continue"
 }
