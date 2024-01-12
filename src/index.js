@@ -18,7 +18,7 @@ mongoose.connect('mongodb://localhost:27017/userdata', {
 i18n.configure({
   locales: ['en', 'ru'], // Доступные языки
   directory: __dirname + '/locales', // Путь к файлам перевода
-  defaultLocale: 'ru', // Язык по умолчанию
+//  defaultLocale: 'ru', // Язык по умолчанию
   objectNotation: true, // Использование объектной нотации для строк
 });
 
@@ -148,13 +148,18 @@ bot.on('callback_query', async (callbackQuery) => {
       bot.sendMessage(chatId, i18n.__('choose_language'), {
         reply_markup: {
           inline_keyboard: [
-            [
-              { text: i18n.__('select_english'), callback_data: 'select_language_en' },
-              { text: i18n.__('select_russian'), callback_data: 'select_language_ru' },
-            ],
+            [ { text: i18n.__('select_english'), callback_data: 'select_language_en' }],
+            [ { text: i18n.__('select_russian'), callback_data: 'select_language_ru' }],
           ],
         },
       });
+      const updatedUser = await User.findOneAndUpdate(
+        { telegramId: userId },
+        { userState: 'at_registration' }, // Set user state to 'at_registration'
+        { new: true }
+      );
+      console.log('User state is "at_registration":', updatedUser);
+
     } else if ('select_language_en' === data || 'select_language_ru' === data) {
       // Обработка выбора языка
       const language = data === 'select_language_en' ? 'en' : 'ru';
@@ -168,7 +173,7 @@ bot.on('callback_query', async (callbackQuery) => {
 
       console.log('User language updated:', updatedUser);
 
-      bot.answerCallbackQuery(callbackQuery.id, i18n.__('select_language_text'));
+      bot.answerCallbackQuery( callbackQuery.id, {text: i18n.__('select_language_text'), show_alert: false} );
       bot.deleteMessage(chatId, messageId);
 
       bot.sendMessage(chatId, i18n.__('select_gender'), {
@@ -194,7 +199,7 @@ bot.on('callback_query', async (callbackQuery) => {
 
       console.log('User gender updated:', updatedProfile);
 
-      bot.answerCallbackQuery(callbackQuery.id, genderText);
+      bot.answerCallbackQuery(callbackQuery.id, {text: genderText, show_alert: false} );
       bot.deleteMessage(chatId, messageId);
 
       bot.sendMessage(chatId, i18n.__('request_location_or_city'), {
@@ -208,7 +213,7 @@ bot.on('callback_query', async (callbackQuery) => {
         },
       });
       regStates.set(userId, 'select_city');
-      
+
     } else if (data.includes('locationId')) {
       // Обработка выбора города
       const parsedData = JSON.parse(data);
@@ -239,14 +244,27 @@ bot.on('callback_query', async (callbackQuery) => {
 
         console.log('User location updated:', updatedProfile);
 
-        bot.answerCallbackQuery(callbackQuery.id, `${i18n.__('location_notification')} ${selectedCity.display_name}`);
+        bot.answerCallbackQuery(callbackQuery.id, {text: `${i18n.__('location_notification')} ${selectedCity.display_name}`, show_alert: false});
         bot.deleteMessage(chatId, messageId);
 
-        bot.sendMessage(chatId, i18n.__('enter_birthday')) // Текст ввода даты рождения
+        bot.sendMessage(chatId, i18n.__('enter_birthday'), { reply_markup: { remove_keyboard: true } }) // Текст ввода даты рождения
         regStates.set(userId, 'select_birthday');
       }
     } else if ('confirm_agreement_button' === data) {
-      console.log('great');
+      regStates.delete(userId); // Clear registration state
+      const updatedUser = await User.findOneAndUpdate(
+        { telegramId: userId },
+        { userState: 'active' }, // Set user state to 'active'
+        { new: true }
+      );
+
+      console.log('User state is "active":', updatedUser);
+      bot.sendMessage(chatId, i18n.__('welcome_message'), {
+        reply_markup: {
+          keyboard: i18n.__('main_menu_buttons'),
+          resize_keyboard: true
+        }}
+      )
     }
   } catch (err) {
     console.error('Ошибка:', err);
@@ -262,55 +280,64 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
   const chatId = msg.chat.id;
 
   // Получаем текущее состояние пользователя
-  const currentState = regStates.get(userId);
-  switch (currentState) {
-    case 'select_city':   // Обработка полученной локации или названия города
-      if (locationMessage) {
-        // Если получена локация, обработать её
-        try {
-          const { locality, display_name, type, state, country } = await getFromLocation(userId, locationMessage, bot);
-          // Обновление профиля пользователя с полученным местоположением
-          const updatedProfile = await Profile.findOneAndUpdate(
-            { telegramId: userId },
-            {
-              'location.locality': locality || '',
-              'location.display_name': display_name || '',
-              'location.type': type || '',
-              'location.state': state || '',
-              'location.country': country || '',
-              'location.latitude': locationMessage.latitude,
-              'location.longitude': locationMessage.longitude,
-            },
-            { new: true }
-          );
-          console.log('User location updated:', updatedProfile);
-
-          const savedMessage = await bot.sendMessage(chatId, `${i18n.__('location_notification')} ${locality}, ${country}`);
-          setTimeout(async () => {
+  try {
+    // Найти пользователя по идентификатору
+    const existingUser = await User.findOne({ telegramId: userId });
+    if (existingUser && existingUser.userState === 'at_registration') {
+      const currentState = regStates.get(userId);
+      switch (currentState) {
+        case 'select_city':   // Обработка полученной локации или названия города
+          if (locationMessage) {
+            // Если получена локация, обработать её
             try {
-              await bot.deleteMessage(chatId, savedMessage.message_id);
-              await bot.sendMessage(chatId, i18n.__('enter_birthday'));
-            } catch (error) {
-              console.error('Error:', error);
+              const { locality, display_name, type, state, country } = await getFromLocation(userId, locationMessage, bot);
+              // Обновление профиля пользователя с полученным местоположением
+              const updatedProfile = await Profile.findOneAndUpdate(
+                { telegramId: userId },
+                {
+                  'location.locality': locality || '',
+                  'location.display_name': display_name || '',
+                  'location.type': type || '',
+                  'location.state': state || '',
+                  'location.country': country || '',
+                  'location.latitude': locationMessage.latitude,
+                  'location.longitude': locationMessage.longitude,
+                },
+                { new: true }
+              );
+              console.log('User location updated:', updatedProfile);
+
+              const savedMessage = await bot.sendMessage(chatId, `${i18n.__('location_notification')} ${locality}, ${country}`, { reply_markup: { remove_keyboard: true } });
+              setTimeout(async () => {
+                try {
+                  await bot.deleteMessage(chatId, savedMessage.message_id);
+                  await bot.sendMessage(chatId, i18n.__('enter_birthday'));
+                } catch (error) {
+                  console.error('Error:', error);
+                }
+              }, 3000);
+
+              regStates.set(userId, 'select_birthday');
+
+            } catch (err) {
+              console.error('Error updating user location:', err);
             }
-          }, 5000);
-
-          regStates.set(userId, 'select_birthday');
-
-        } catch (err) {
-          console.error('Error updating user location:', err);
-        }
-      } else if(cityName) {
-        // Если получено сообщение с текстом (название города), обработать его
-        await getFromCityName(cityName, bot, chatId, locationDataMap);
+          } else if(cityName) {
+            // Если получено сообщение с текстом (название города), обработать его
+            await getFromCityName(cityName, bot, chatId, locationDataMap);
+          }
+          break;
+        case 'select_birthday':  // Обработка ввода даты рождения
+          await handleBirthday(bot, regStates, Profile, i18n, msg);
+          break;
+        case 'select_photo':  // Обработка отправленной фотографии 
+        await handlePhoto(bot, regStates, i18n, msg);
+          break;
+        //default:
       }
-      break;
-    case 'select_birthday':  // Обработка ввода даты рождения
-      await handleBirthday(bot, regStates, Profile, i18n, msg);
-      break;
-    case 'select_photo':  // Обработка отправленной фотографии 
-    await handlePhoto(bot, regStates, i18n, msg);
-      break;
-    //default:
+    }
+  } catch (err) {
+    console.error('Error retrieving user state:', err);
+    bot.sendMessage(chatId, 'Произошла ошибка при обработке сообщения.');
   }
 });
