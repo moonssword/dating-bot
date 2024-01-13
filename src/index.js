@@ -19,6 +19,7 @@ mongoose.connect('mongodb://localhost:27017/userdata', {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
 i18n.configure({
   locales: ['en', 'ru'], // Доступные языки
   directory: `${__dirname}/locales`, // Путь к файлам перевода
@@ -27,11 +28,6 @@ i18n.configure({
 });
 
 const locationDataMap = new Map(); // Создаем Map для временного хранения данных о местоположении
-
-// Функция для генерации уникальных идентификаторов
-function generateUniqueID() {
-return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-}
 
 // Схема пользователя
 const userSchema = new mongoose.Schema({
@@ -54,7 +50,7 @@ userSchema.pre('save', function(next) {
 });
 
 // Модель пользователя
-const User = mongoose.model('User', userSchema);
+const User = mongoose.model('User', userSchema, 'users');
 
 // Схема профиля
 const profileSchema = new mongoose.Schema({
@@ -76,7 +72,7 @@ const profileSchema = new mongoose.Schema({
 }, { versionKey: false });
 
 // Модель профиля
-const Profile = mongoose.model('Profile', profileSchema);
+const Profile = mongoose.model('Profile', profileSchema, 'profiles');
 
 //Схема фотографий профиля
 const userPhotoSchema = new mongoose.Schema({
@@ -89,10 +85,10 @@ const userPhotoSchema = new mongoose.Schema({
     verifiedPhoto: { type: Boolean, default: false },
     isProfilePhoto: { type: Boolean, default: false },
   }
-});
+}, { versionKey: false });
 
 //Модель фотографий профиля
-const UserPhoto = mongoose.model('UserPhoto', userPhotoSchema);
+const UserPhoto = mongoose.model('UserPhoto', userPhotoSchema, 'usersPhotos');
 
 // Создание экземпляра бота
 const bot = new TelegramBot(process.env.bot_token, { polling: true });

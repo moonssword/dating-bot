@@ -33,7 +33,7 @@ Promise.all([
 });
 
 // Определение функции обработки фотографии
-export async function handlePhoto (bot, regStates, i18n, msg, User) {
+export async function handlePhoto (bot, regStates, i18n, msg, User, UserPhoto) {
         const userId = msg.from.id;
         const chatId = msg.chat.id;
         if (!msg.photo || msg.photo.length === 0) {
@@ -133,6 +133,22 @@ export async function handlePhoto (bot, regStates, i18n, msg, User) {
             // Изменение статуса пользователя
             regStates.set(userId, 'confirm_agreement');
         }, 3000); // Ожидание 3 секунды перед выводом confirm_agreement_button
-    };
+
+        // Создание записи для сохранения в коллекцию usersPhoto
+        const userPhotoData = {
+            userId: user._id, // Используйте _id из найденного пользователя
+            photos: {
+                filename: `${fileId}.jpg`,
+                path: filePath,
+                size: buffer.length,
+                uploadDate: new Date(),
+                verifiedPhoto: true, // Измените на true, если фотография успешно проверена
+                isProfilePhoto: false, // Измените по необходимости
+            },
+        };
+
+        // Сохранение данных в коллекцию usersPhoto
+        await UserPhoto.create(userPhotoData);
+        };
 
 export default { handlePhoto };
