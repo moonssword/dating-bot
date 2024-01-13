@@ -1,7 +1,8 @@
 // birthdayHandler.js
+import i18n from 'i18n';
 
-const i18n = require('i18n');
-const handleBirthday = async (bot, regStates, Profile, i18n, msg) => {
+export
+async function handleBirthday(bot, regStates, Profile, i18n, msg) {
   const userId = msg.from.id;
   const chatId = msg.chat.id;
   const birthdayRegex = /^(\d{1,2})[./](\d{1,2})[./](\d{4})$/;
@@ -65,4 +66,4 @@ const handleBirthday = async (bot, regStates, Profile, i18n, msg) => {
   }
 };
 
-module.exports = { handleBirthday };
+export default { handleBirthday };

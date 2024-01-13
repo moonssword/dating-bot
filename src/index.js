@@ -1,11 +1,13 @@
-require('dotenv').config();
-const i18n = require('i18n');
-const TelegramBot = require('node-telegram-bot-api');
+import 'dotenv/config';
+import i18n from 'i18n';
+import TelegramBot from 'node-telegram-bot-api';
 
-const mongoose = require('mongoose');
-const {   getFromLocation, getFromCityName } = require('./locationHandler');
-const { handleBirthday } = require('./birthdayHandler');
-const { handlePhoto } = require('./checkPhotoHandler');
+import mongoose from 'mongoose';
+import {   getFromLocation, getFromCityName } from './locationHandler.js';
+import { handleBirthday } from './birthdayHandler.js';
+import { handlePhoto } from './checkPhotoHandler.js';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 // Подключение к базе данных MongoDB
 mongoose.connect('mongodb://localhost:27017/userdata', {
@@ -15,9 +17,11 @@ mongoose.connect('mongodb://localhost:27017/userdata', {
 .then(() => console.log('Connected to MongoDB'))
 .catch((error) => console.error('Connection to MongoDB failed:', error));
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 i18n.configure({
   locales: ['en', 'ru'], // Доступные языки
-  directory: __dirname + '/locales', // Путь к файлам перевода
+  directory: `${__dirname}/locales`, // Путь к файлам перевода
 //  defaultLocale: 'ru', // Язык по умолчанию
   objectNotation: true, // Использование объектной нотации для строк
 });
@@ -73,6 +77,22 @@ const profileSchema = new mongoose.Schema({
 
 // Модель профиля
 const Profile = mongoose.model('Profile', profileSchema);
+
+//Схема фотографий профиля
+const userPhotoSchema = new mongoose.Schema({
+  userId: mongoose.Schema.Types.ObjectId,
+  photos: {
+    filename: String,
+    path: String,
+    size: Number,
+    uploadDate: { type: Date, default: Date.now },
+    verifiedPhoto: { type: Boolean, default: false },
+    isProfilePhoto: { type: Boolean, default: false },
+  }
+});
+
+//Модель фотографий профиля
+const UserPhoto = mongoose.model('UserPhoto', userPhotoSchema);
 
 // Создание экземпляра бота
 const bot = new TelegramBot(process.env.bot_token, { polling: true });
@@ -331,7 +351,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           await handleBirthday(bot, regStates, Profile, i18n, msg);
           break;
         case 'select_photo':  // Обработка отправленной фотографии 
-        await handlePhoto(bot, regStates, i18n, msg);
+          await handlePhoto(bot, regStates, i18n, msg, User, UserPhoto);
           break;
         //default:
       }

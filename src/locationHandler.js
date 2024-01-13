@@ -1,10 +1,15 @@
 // locationModule.js
-const axios = require('axios');
-const i18n = require('i18n');
+import axios from 'axios';
+import i18n from 'i18n';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 i18n.configure({
   locales: ['en', 'ru'], // Доступные языки
-  directory: __dirname + '/locales', // Путь к файлам перевода
+  directory: `${__dirname}/locales`, // Путь к файлам перевода
   defaultLocale: 'ru', // Язык по умолчанию
   objectNotation: true, // Использование объектной нотации для строк
 });
@@ -13,7 +18,7 @@ function generateUniqueID() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 }
 
-async function getFromLocation(chatId, locationMessage, bot) {
+export async function getFromLocation(chatId, locationMessage, bot) {
   try {
     const { latitude, longitude } = locationMessage;
     const locationData = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`);
@@ -31,7 +36,7 @@ return { locality, display_name, type, state, country };
   }
 }
 
-async function getFromCityName(cityName, bot, chatId, locationDataMap) {
+export async function getFromCityName(cityName, bot, chatId, locationDataMap) {
   try {
     const encodedCity = encodeURIComponent(cityName);
     const cityData = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodedCity}&limit=20`);
@@ -78,7 +83,7 @@ async function getFromCityName(cityName, bot, chatId, locationDataMap) {
   }
 }
 
-module.exports = {
+export default {
   getFromLocation,
   getFromCityName,
 };

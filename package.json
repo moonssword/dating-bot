@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "dating bot",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -16,10 +17,13 @@
     "express": "^4.17.1",
     "face-api.js": "^0.22.2",
     "i18n": "^0.15.1",
+    "mkdirp": "^3.0.1",
     "mongodb": "^6.3.0",
     "mongoose": "^8.0.3",
+    "node-fetch": "^3.3.2",
     "pg": "^8.11.3",
-    "telegraf": "^4.15.3"
+    "telegraf": "^4.15.3",
+    "unique-filename": "^3.0.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.15"
