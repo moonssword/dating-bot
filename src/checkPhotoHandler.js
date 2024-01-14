@@ -33,7 +33,7 @@ Promise.all([
 });
 
 // Определение функции обработки фотографии
-export async function handlePhoto (bot, regStates, i18n, msg, User, UserPhoto) {
+export async function handlePhoto (bot, regStates, i18n, msg, User, UserPhoto, Profile) {
         const userId = msg.from.id;
         const chatId = msg.chat.id;
         if (!msg.photo || msg.photo.length === 0) {
@@ -134,21 +134,36 @@ export async function handlePhoto (bot, regStates, i18n, msg, User, UserPhoto) {
             regStates.set(userId, 'confirm_agreement');
         }, 3000); // Ожидание 3 секунды перед выводом confirm_agreement_button
 
-        // Создание записи для сохранения в коллекцию usersPhoto
-        const userPhotoData = {
-            userId: user._id, // Используйте _id из найденного пользователя
-            photos: {
-                filename: `${fileId}.jpg`,
-                path: filePath,
-                size: buffer.length,
-                uploadDate: new Date(),
-                verifiedPhoto: true, // Измените на true, если фотография успешно проверена
-                isProfilePhoto: false, // Измените по необходимости
-            },
-        };
+        // Создание или обновление записи в коллекции usersPhotos
+        let userPhoto = await UserPhoto.findOne({ userId: user._id });
+        if (!userPhoto) {
+            userPhoto = new UserPhoto({ userId: user._id, photos: [] });
+        }
 
-        // Сохранение данных в коллекцию usersPhoto
-        await UserPhoto.create(userPhotoData);
+        // Добавление фотографии в массив
+        userPhoto.photos.push({
+        filename: `${fileId}.jpg`,
+        path: filePath,
+        size: buffer.length,
+        uploadDate: new Date(),
+        verifiedPhoto: detections.length > 0, // true если фотография прошла проверку
+        });
+
+        // Сохранение или обновление данных в коллекции usersPhotos
+        await userPhoto.save();
+
+        // Обновление свойства profilePhoto в коллекции profiles
+        const lastPhotoId = userPhoto.photos[userPhoto.photos.length - 1]._id;
+        await Profile.findOneAndUpdate(
+            { userId: user._id },
+            { profilePhoto: {
+                photoId: lastPhotoId,
+                photoPath: filePath,
+                uploadDate: new Date(),
+                },
+            },
+            { new: true }
+        );
         };
 
 export default { handlePhoto };

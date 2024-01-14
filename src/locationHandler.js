@@ -23,40 +23,49 @@ export async function getFromLocation(chatId, locationMessage, bot) {
     const { latitude, longitude } = locationMessage;
     const locationData = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`);
     
-    const locality = locationData.data.address.city || locationData.data.address.town || locationData.data.address.village || locationData.data.address.hamlet;
+    const locality = locationData.data.address.city || locationData.data.address.town || locationData.data.address.village || locationData.data.address.hamlet || locationData.data.name;
     const display_name = locationData.data.display_name;
     const state = locationData.data.address.state;
     const country = locationData.data.address.country;
-    const type = locationData.data.type;
+    const addresstype = locationData.data.addresstype;
 
-return { locality, display_name, type, state, country };
-  } catch (err) {
-    console.error('Ошибка:', err);
-  return err;
-  }
-}
+    return { locality, display_name, addresstype, state, country };
+      } catch (err) {
+        console.error('Ошибка:', err);
+      return err;
+      }
+    }
 
 export async function getFromCityName(cityName, bot, chatId, locationDataMap) {
   try {
     const encodedCity = encodeURIComponent(cityName);
     const cityData = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodedCity}&limit=20`);
 
-    if (cityData.data.length === 0) {
-      bot.sendMessage(chatId, 'Город не найден');
+    const validCities = cityData.data.filter(locality =>
+      ['city', 'town', 'village', 'hamlet'].includes(locality.addresstype)
+    );
+
+    if (validCities.length === 0) {
+      const errorMessage = await bot.sendMessage(chatId, i18n.__('city_not_found'));
+      setTimeout(async () => {
+          try {
+              await bot.deleteMessage(chatId, errorMessage.message_id);
+          } catch (error) {
+              console.error('Error:', error);
+          }
+      }, 3000);
     } else {
-      const cities = cityData.data
-        .filter((locality) => ['city', 'town', 'village', 'hamlet'].includes(locality.type))
-        .map((locality) => {
-          return {
-            display_name: locality.display_name || '',
-            locality: locality.name || '',
-            type: locality.type || '',
-            state: locality.state || '',
-            country: locality.country || '',
-            latitude: locality.lat,
-            longitude: locality.lon,
-          };
-        });
+      const cities = validCities.map(locality => {
+        return {
+          display_name: locality.display_name || '',
+          locality: locality.name || '',
+          addresstype: locality.addresstype || '',
+          state: locality.state || '',
+          country: locality.country || '',
+          latitude: locality.lat,
+          longitude: locality.lon,
+        };
+      });
 
       const locationId = generateUniqueID();
       locationDataMap.set(locationId, cities);
@@ -64,7 +73,7 @@ export async function getFromCityName(cityName, bot, chatId, locationDataMap) {
       const keyboard = {
         inline_keyboard: cities.map((locality, index) => [
           {
-            text: locality.display_name,
+            text: `🔹 ${locality.display_name}`,
             callback_data: JSON.stringify({
               locationId: locationId,
               cityIndex: index,

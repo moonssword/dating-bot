@@ -1,19 +1,15 @@
 import 'dotenv/config';
 import i18n from 'i18n';
 import TelegramBot from 'node-telegram-bot-api';
-
 import mongoose from 'mongoose';
-import {   getFromLocation, getFromCityName } from './locationHandler.js';
+import { getFromLocation, getFromCityName } from './locationHandler.js';
 import { handleBirthday } from './birthdayHandler.js';
 import { handlePhoto } from './checkPhotoHandler.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
 // Подключение к базе данных MongoDB
-mongoose.connect('mongodb://localhost:27017/userdata', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+mongoose.connect('mongodb://localhost:27017/userdata')
 .then(() => console.log('Connected to MongoDB'))
 .catch((error) => console.error('Connection to MongoDB failed:', error));
 
@@ -56,14 +52,20 @@ const User = mongoose.model('User', userSchema, 'users');
 const profileSchema = new mongoose.Schema({
   userId: mongoose.Schema.Types.ObjectId,
   telegramId: Number,
+  profileName: String,
   gender: String,
   birthday: Date,
   age: Number,
   interests: String,
+  profilePhoto: {
+    photoId: mongoose.Schema.Types.ObjectId,
+    photoPath: String,
+    uploadDate: Date,
+  },
   location: {
     locality: String,
     display_name: String,
-    type: String,
+    addresstype: String,
     state: String,
     country: String,
     latitude: Number,
@@ -77,14 +79,13 @@ const Profile = mongoose.model('Profile', profileSchema, 'profiles');
 //Схема фотографий профиля
 const userPhotoSchema = new mongoose.Schema({
   userId: mongoose.Schema.Types.ObjectId,
-  photos: {
+  photos: [{
     filename: String,
     path: String,
     size: Number,
     uploadDate: { type: Date, default: Date.now },
     verifiedPhoto: { type: Boolean, default: false },
-    isProfilePhoto: { type: Boolean, default: false },
-  }
+  }]
 }, { versionKey: false });
 
 //Модель фотографий профиля
@@ -104,6 +105,7 @@ bot.onText(/\/start/, async (msg) => {
     lastName: msg.from.last_name,
     languageCode: msg.from.language_code,
     isBot: msg.from.is_bot,
+    userState: 'new',
   };
 
   // Локализация текстов
@@ -122,6 +124,7 @@ bot.onText(/\/start/, async (msg) => {
       const profileData = {
         userId: createdUser._id,
         telegramId: createdUser.telegramId,
+        profileName: createdUser.firstName,
         // Add other profile properties as needed
       };
       const createdProfile = await Profile.create(profileData);
@@ -249,9 +252,9 @@ bot.on('callback_query', async (callbackQuery) => {
           {
             'location.locality': selectedCity.locality || '',
             'location.display_name': selectedCity.display_name || '',
-            'location.type': selectedCity.type || '',
+            'location.addresstype': selectedCity.addresstype || '',
             'location.state': selectedCity.state || '',
-            'location.country': selectedCity.country || '',
+            'location.country': selectedCity.country || selectedCity.display_name.split(', ')[selectedCity.display_name.split(', ').length - 1],
             'location.latitude': selectedCity.latitude,
             'location.longitude': selectedCity.longitude,
           },
@@ -306,14 +309,14 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           if (locationMessage) {
             // Если получена локация, обработать её
             try {
-              const { locality, display_name, type, state, country } = await getFromLocation(userId, locationMessage, bot);
+              const { locality, display_name, addresstype, state, country } = await getFromLocation(userId, locationMessage, bot);
               // Обновление профиля пользователя с полученным местоположением
               const updatedProfile = await Profile.findOneAndUpdate(
                 { telegramId: userId },
                 {
                   'location.locality': locality || '',
                   'location.display_name': display_name || '',
-                  'location.type': type || '',
+                  'location.addresstype': addresstype || '',
                   'location.state': state || '',
                   'location.country': country || '',
                   'location.latitude': locationMessage.latitude,
@@ -347,7 +350,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           await handleBirthday(bot, regStates, Profile, i18n, msg);
           break;
         case 'select_photo':  // Обработка отправленной фотографии 
-          await handlePhoto(bot, regStates, i18n, msg, User, UserPhoto);
+          await handlePhoto(bot, regStates, i18n, msg, User, UserPhoto, Profile);
           break;
         //default:
       }
