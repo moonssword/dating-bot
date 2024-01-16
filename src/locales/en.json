@@ -1,6 +1,5 @@
 {
 	"registration_message": "🌟 Welcome to the new acquaintances application!",
-	"welcome_message": "Here you can see 🎯 new candidates, 💘mutual likes or change your profile settings",
 	"registration_button": "📝 Registration",
 	"choose_language": "🌐 Choose your language:",
 	"select_english": "🇬🇧 English",
@@ -28,22 +27,28 @@
 	"confirm_agreement_message": "📝 By clicking Continue, you confirm\n that you accept the User Agreement and the Privacy\n Policy",
 	"confirm_agreement_link": "📄 Read agreement",
 	"confirm_agreement_button": "✏️ Continue",
+	"welcome_message": "Here you can see 🎯 new candidates, 💘mutual likes or change your profile settings",
 	"main_menu_buttons": [
 		["👥 Profiles", "💘 Matches"],
 		["⚙️ Settings", "💕 You Liked"]
 	],
+	"settings_menu_message": "👇 Select the menu section",
 	"settings_menu_buttons": [
 		["👤 My profile", "🔍 Search settings"],
 		["🔙 Back", "?"]
 	],
+	"myprofile_message": "My Profile photo with info",
 	"myprofile_buttons": [
 		["🔠 Name", "📅 Date of birth"],
-		["📸 Photo", "✍️ About me"]
+		["📸 Photo", "✍️ About me"],
+		["🔙 Back", "🌐 Interface language"]
 	],
+	"search_settings_message": "🔎 Your Search settings",
 	"search_settings_buttons": [
 		["📍 Location", "♂️ Gender"],
 		["🔙 Back", "🔢 Age"]
 	],
+	"user_profiles_message": "Any Profile photo with info",
 	"user_profiles_buttons": [
 		["❌", "💚"],
 		["🔙 Back", "🎁 Make a gift"]

@@ -7,6 +7,7 @@ import { handleBirthday } from './birthdayHandler.js';
 import { handlePhoto } from './checkPhotoHandler.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { BUTTONS } from './constants.js';
 
 // Подключение к базе данных MongoDB
 mongoose.connect('mongodb://localhost:27017/userdata')
@@ -152,7 +153,7 @@ bot.onText(/\/start/, async (msg) => {
   });
 });
 
-const regStates = new Map(); // Переменная состояния регистрации(state)
+const currentUserState = new Map(); // Переменная состояния регистрации(state)
 
 bot.on('callback_query', async (callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
@@ -174,10 +175,10 @@ bot.on('callback_query', async (callbackQuery) => {
       });
       const updatedUser = await User.findOneAndUpdate(
         { telegramId: userId },
-        { userState: 'at_registration' }, // Set user state to 'at_registration'
+        { userState: 'registration_process' }, // Set user state to 'registration_process'
         { new: true }
       );
-      console.log('User state is "at_registration":', updatedUser);
+      console.log('User state is "registration_process":', updatedUser);
 
     } else if ('select_language_en' === data || 'select_language_ru' === data) {
       // Обработка выбора языка
@@ -231,7 +232,7 @@ bot.on('callback_query', async (callbackQuery) => {
           resize_keyboard: true,
         },
       });
-      regStates.set(userId, 'select_city');
+      currentUserState.set(userId, 'select_city');
 
     } else if (data.includes('locationId')) {
       // Обработка выбора города
@@ -267,17 +268,18 @@ bot.on('callback_query', async (callbackQuery) => {
         bot.deleteMessage(chatId, messageId);
 
         bot.sendMessage(chatId, i18n.__('enter_birthday'), { reply_markup: { remove_keyboard: true } }) // Текст ввода даты рождения
-        regStates.set(userId, 'select_birthday');
+        currentUserState.set(userId, 'select_birthday');
       }
     } else if ('confirm_agreement_button' === data) {
-      regStates.delete(userId); // Clear registration state
+      // Обработка нажатия кнопки "Продолжить" с соглашением
+      currentUserState.set(userId, 'main_menu'); // Set user state to 'main_menu'
       const updatedUser = await User.findOneAndUpdate(
         { telegramId: userId },
         { userState: 'active' }, // Set user state to 'active'
         { new: true }
       );
-
       console.log('User state is "active":', updatedUser);
+      
       bot.sendMessage(chatId, i18n.__('welcome_message'), {
         reply_markup: {
           keyboard: i18n.__('main_menu_buttons'),
@@ -302,8 +304,8 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
   try {
     // Найти пользователя по идентификатору
     const existingUser = await User.findOne({ telegramId: userId });
-    if (existingUser && existingUser.userState === 'at_registration') {
-      const currentState = regStates.get(userId);
+    if (existingUser && existingUser.userState === 'registration_process') {
+      const currentState = currentUserState.get(userId);
       switch (currentState) {
         case 'select_city':   // Обработка полученной локации или названия города
           if (locationMessage) {
@@ -336,7 +338,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                 }
               }, 3000);
 
-              regStates.set(userId, 'select_birthday');
+              currentUserState.set(userId, 'select_birthday');
 
             } catch (err) {
               console.error('Error updating user location:', err);
@@ -347,12 +349,90 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           }
           break;
         case 'select_birthday':  // Обработка ввода даты рождения
-          await handleBirthday(bot, regStates, Profile, i18n, msg);
+          await handleBirthday(bot, currentUserState, Profile, i18n, msg);
           break;
         case 'select_photo':  // Обработка отправленной фотографии 
-          await handlePhoto(bot, regStates, i18n, msg, User, UserPhoto, Profile);
+          await handlePhoto(bot, currentUserState, i18n, msg, User, UserPhoto, Profile);
           break;
         //default:
+      }
+    } else if (existingUser && existingUser.userState === 'active') {
+      const currentState = currentUserState.get(userId);
+      switch (currentState) {
+        case 'main_menu':
+          if (msg.text === BUTTONS.SETTINGS.en || msg.text === BUTTONS.SETTINGS.ru) {
+            currentUserState.set(userId, 'settings_menu');
+            bot.sendMessage(chatId, i18n.__('settings_menu_message'), {
+              reply_markup: {
+                keyboard: i18n.__('settings_menu_buttons'),
+                resize_keyboard: true
+              }});
+          } else if (msg.text === BUTTONS.PROFILES.en || msg.text === BUTTONS.PROFILES.ru) {
+            currentUserState.set(userId, 'user_profiles');
+            bot.sendMessage(chatId, i18n.__('user_profiles_message'), {
+              reply_markup: {
+                keyboard: i18n.__('user_profiles_buttons'),
+                resize_keyboard: true
+              }});
+          } //далее условия для 2 оставшихся пунктов меню
+          break;
+        case 'settings_menu':
+          if (msg.text === BUTTONS.MY_PROFILE.en || msg.text === BUTTONS.MY_PROFILE.ru) {
+            currentUserState.set(userId, 'my_profile');
+            bot.sendMessage(chatId, i18n.__('myprofile_message'), {
+              reply_markup: {
+                keyboard: i18n.__('myprofile_buttons'),
+                resize_keyboard: true
+              }});
+          } else if (msg.text === BUTTONS.SEARCH_SETTINGS.en || msg.text === BUTTONS.SEARCH_SETTINGS.ru) {
+            currentUserState.set(userId, 'search_settings');
+            bot.sendMessage(chatId, i18n.__('search_settings_message'), {
+              reply_markup: {
+                keyboard: i18n.__('search_settings_buttons'),
+                resize_keyboard: true
+              }});
+          } else if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+            currentUserState.set(userId, 'main_menu');
+            bot.sendMessage(chatId, i18n.__('welcome_message'), {
+              reply_markup: {
+                keyboard: i18n.__('main_menu_buttons'),
+                resize_keyboard: true
+              }});
+          }
+          break;
+        case 'user_profiles':
+          //Обработка анкет
+          if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+            currentUserState.set(userId, 'main_menu');
+            bot.sendMessage(chatId, i18n.__('welcome_message'), {
+              reply_markup: {
+                keyboard: i18n.__('main_menu_buttons'),
+                resize_keyboard: true
+              }});
+          }
+        break;
+        case 'search_settings':
+          //Настройка поиска анкет
+          if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+            currentUserState.set(userId, 'settings_menu');
+            bot.sendMessage(chatId, i18n.__('settings_menu_message'), {
+              reply_markup: {
+                keyboard: i18n.__('settings_menu_buttons'),
+                resize_keyboard: true
+              }});
+          }
+          break;
+        case 'my_profile':
+          //Обработка выбора меню Мой профиль
+          if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+            currentUserState.set(userId, 'settings_menu');
+            bot.sendMessage(chatId, i18n.__('settings_menu_message'), {
+              reply_markup: {
+                keyboard: i18n.__('settings_menu_buttons'),
+                resize_keyboard: true
+              }});
+          }
+          break;
       }
     }
   } catch (err) {

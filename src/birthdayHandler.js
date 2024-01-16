@@ -2,12 +2,12 @@
 import i18n from 'i18n';
 
 export
-async function handleBirthday(bot, regStates, Profile, i18n, msg) {
+async function handleBirthday(bot, currentUserState, Profile, i18n, msg) {
   const userId = msg.from.id;
   const chatId = msg.chat.id;
   const birthdayRegex = /^(\d{1,2})[./](\d{1,2})[./](\d{4})$/;
 
-  const currentState = regStates.get(userId);
+  const currentState = currentUserState.get(userId);
 
   if (currentState === 'select_birthday' && msg.text) {
       const birthdayText = msg.text.trim();
@@ -38,7 +38,7 @@ async function handleBirthday(bot, regStates, Profile, i18n, msg) {
                           console.error('Error:', error);
                       }
                   }, 2000);
-                  regStates.set(userId, 'select_photo');
+                  currentUserState.set(userId, 'select_photo');
               } catch (err) {
                   console.error('Error updating user birthday:', err);
                   bot.sendMessage(chatId, i18n.__('birthday_not_saved')); //Отладка

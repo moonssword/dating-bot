@@ -33,7 +33,7 @@ Promise.all([
 });
 
 // Определение функции обработки фотографии
-export async function handlePhoto (bot, regStates, i18n, msg, User, UserPhoto, Profile) {
+export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserPhoto, Profile) {
         const userId = msg.from.id;
         const chatId = msg.chat.id;
         if (!msg.photo || msg.photo.length === 0) {
@@ -131,7 +131,7 @@ export async function handlePhoto (bot, regStates, i18n, msg, User, UserPhoto, P
             });
 
             // Изменение статуса пользователя
-            regStates.set(userId, 'confirm_agreement');
+            currentUserState.set(userId, 'confirm_agreement');
         }, 3000); // Ожидание 3 секунды перед выводом confirm_agreement_button
 
         // Создание или обновление записи в коллекции usersPhotos
