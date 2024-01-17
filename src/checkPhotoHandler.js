@@ -51,7 +51,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
         // Получение информации о фотографии
         const photo = msg.photo[msg.photo.length - 1];
         const fileId = photo.file_id;
-
+        console.log('Фото', msg.photo);
         // Получение пользователя из базы данных по telegramId
         const user = await User.findOne({ telegramId: userId });
 
@@ -64,6 +64,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
         // Получение URL фотографии
         const file = await bot.getFile(fileId);
         const photoUrl = `https://api.telegram.org/file/bot${process.env.bot_token}/${file.file_path}`;
+        console.log('URL фотографии', photoUrl);
 
         // Сохранение фотографии в папку
         const response = await fetch(photoUrl);
@@ -110,7 +111,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
             await bot.deleteMessage(chatId, processingMessage.message_id);
         }
 
-        // Вывод сообщения photo_verified_message на 2 секунды
+        // Вывод сообщения photo_verified_message на 1 секунды
         const verifiedMessage = await bot.sendMessage(chatId, i18n.__('photo_verified_message'));
         setTimeout(async () => {
             // Удаление сообщения photo_verified_message
@@ -132,7 +133,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
 
             // Изменение статуса пользователя
             currentUserState.set(userId, 'confirm_agreement');
-        }, 3000); // Ожидание 3 секунды перед выводом confirm_agreement_button
+        }, 1000); // Ожидание 3 секунды перед выводом confirm_agreement_button
 
         // Создание или обновление записи в коллекции usersPhotos
         let userPhoto = await UserPhoto.findOne({ userId: user._id });

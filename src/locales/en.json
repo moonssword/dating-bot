@@ -15,7 +15,7 @@
 	"list_of_cities": "👇 Select your city from the list:",
 	"city_not_found": "⚠️ The city was not found",
 	"location_notification": "📍🌍 You are located in ",
-	"enter_birthday": "📅 Please, enter your date of birth\n  in DD.MM.YYYY format",
+	"enter_birthday_message": "📅 Please, enter your date of birth\n  in DD.MM.YYYY format",
 	"invalid_birthday_format": "⚠️ The date of birth is incorrect or an unrealistic age is specified",
 	"birthday_saved": "💾 Date of birth saved",
 	"birthday_not_saved": "❌ Date of birth not saved",
@@ -27,7 +27,7 @@
 	"confirm_agreement_message": "📝 By clicking Continue, you confirm\n that you accept the User Agreement and the Privacy\n Policy",
 	"confirm_agreement_link": "📄 Read agreement",
 	"confirm_agreement_button": "✏️ Continue",
-	"welcome_message": "Here you can see 🎯 new candidates, 💘mutual likes or change your profile settings",
+	"main_menu_message": "Here you can see 🎯 new candidates, 💘mutual likes or change your profile settings",
 	"main_menu_buttons": [
 		["👥 Profiles", "💘 Matches"],
 		["⚙️ Settings", "💕 You Liked"]
@@ -37,7 +37,7 @@
 		["👤 My profile", "🔍 Search settings"],
 		["🔙 Back", "?"]
 	],
-	"myprofile_message": "My Profile photo with info",
+	"myprofile_message": "Gender: ",
 	"myprofile_buttons": [
 		["🔠 Name", "📅 Date of birth"],
 		["📸 Photo", "✍️ About me"],
@@ -52,5 +52,9 @@
 	"user_profiles_buttons": [
 		["❌", "💚"],
 		["🔙 Back", "🎁 Make a gift"]
-	]
+	],
+	"back_button": [
+		["🔙 Back"]
+	],
+	"enter_profilename_message": "What is your name?"
 }
