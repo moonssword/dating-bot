@@ -26,7 +26,7 @@ const BUTTONS = {
     },
     ABOUT_ME: {
       en: '✍️ About me',
-      ru: '✍️ Обо мне'
+      ru: '✍️ О себе'
     },
     INTERFACE_LANGUAGE: {
       en: '🌐 Interface language',

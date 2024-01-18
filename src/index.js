@@ -58,6 +58,14 @@ const profileSchema = new mongoose.Schema({
   birthday: Date,
   age: Number,
   interests: String,
+  aboutMe: String,
+  preferences: {
+    preferredGender: String,
+    ageRange: {
+      min: Number,
+      max: Number,
+    },
+  },
   profilePhoto: {
     photoId: mongoose.Schema.Types.ObjectId,
     photoPath: String,
@@ -161,12 +169,14 @@ bot.on('callback_query', async (callbackQuery) => {
   const messageId = callbackQuery.message.message_id;
   const userId = callbackQuery.from.id;
   const data = callbackQuery.data;
+  const existingUser = await User.findOne({ telegramId: userId });
+  const userProfile = await Profile.findOne({ telegramId: userId });
 
   try {
     if ('registration' === data) {
       // Обработка нажатия на кнопку "Регистрация"
       bot.deleteMessage(chatId, messageId);
-      bot.sendMessage(chatId, i18n.__('choose_language'), {
+      bot.sendMessage(chatId, i18n.__('select_language_message'), {
         reply_markup: {
           inline_keyboard: [
             [ { text: i18n.__('select_english'), callback_data: 'select_language_en' }],
@@ -194,19 +204,34 @@ bot.on('callback_query', async (callbackQuery) => {
 
       console.log('User language updated:', updatedUser);
 
-      bot.answerCallbackQuery( callbackQuery.id, {text: i18n.__('select_language_text'), show_alert: false} );
       bot.deleteMessage(chatId, messageId);
 
-      bot.sendMessage(chatId, i18n.__('select_gender'), {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: i18n.__('select_male'), callback_data: 'select_male' },
-              { text: i18n.__('select_female'), callback_data: 'select_female' },
-            ],
-          ],
-        },
-      });
+        if (existingUser.globalUserState === 'registration_process') {
+          bot.answerCallbackQuery( callbackQuery.id, {text: i18n.__('select_language_text'), show_alert: false} );
+          bot.sendMessage(chatId, i18n.__('select_gender'), {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: i18n.__('select_male'), callback_data: 'select_male' },
+                  { text: i18n.__('select_female'), callback_data: 'select_female' },
+                ],
+              ],
+            },
+          });
+        } else if (existingUser.globalUserState === 'active') {
+          const languageSelected = await bot.sendMessage(chatId, i18n.__('select_language_text'));
+          setTimeout(async () => {
+              try {
+                  await bot.deleteMessage(chatId, languageSelected.message_id);
+                  sendMyProfile(chatId, userProfile);
+              } catch (error) {
+                  console.error('Error:', error);
+              }
+          }, 2000);
+          currentUserState.set(userId, 'my_profile');
+          
+        }
+
     } else if ('select_male' === data || 'select_female' === data) {
       // Обработка выбора пола
       const gender = data === 'select_male' ? 'male' : 'female';
@@ -382,13 +407,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
         case 'settings_menu':
           if (msg.text === BUTTONS.MY_PROFILE.en || msg.text === BUTTONS.MY_PROFILE.ru) {
             currentUserState.set(userId, 'my_profile');
-            const photoPath = userProfile.profilePhoto.photoPath;
-            bot.sendPhoto(chatId, photoPath, {
-              caption: `${userProfile.profileName}, ${userProfile.age}\n 🌍${userProfile.location.locality}, ${userProfile.location.country}\n ${i18n.__('myprofile_message')} ${userProfile.gender}`,
-              reply_markup: {
-                keyboard: i18n.__('myprofile_buttons'),
-                resize_keyboard: true
-              }});
+            sendMyProfile(chatId, userProfile);
           } else if (msg.text === BUTTONS.SEARCH_SETTINGS.en || msg.text === BUTTONS.SEARCH_SETTINGS.ru) {
             currentUserState.set(userId, 'search_settings');
             bot.sendMessage(chatId, i18n.__('search_settings_message'), {
@@ -415,7 +434,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                 resize_keyboard: true
               }});
           }
-        break;
+          break;
         case 'search_settings':
           //Настройка поиска анкет
           if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
@@ -450,18 +469,29 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                 keyboard: i18n.__('back_button'),
                 resize_keyboard: true
               }});
+          } else if (msg.text === BUTTONS.ABOUT_ME.en || msg.text === BUTTONS.ABOUT_ME.ru) {
+            currentUserState.set(userId, 'enter_aboutme');
+            bot.sendMessage(chatId, i18n.__('enter_aboutme_message'), {
+              reply_markup: {
+                keyboard: i18n.__('back_button'),
+                resize_keyboard: true
+              }});
+          } else if (msg.text === BUTTONS.INTERFACE_LANGUAGE.en || msg.text === BUTTONS.INTERFACE_LANGUAGE.ru) {
+            currentUserState.set(userId, 'select_language');
+            bot.sendMessage(chatId, i18n.__('select_language_message'), {
+              reply_markup: {
+                inline_keyboard: [
+                  [ { text: i18n.__('select_english'), callback_data: 'select_language_en' }],
+                  [ { text: i18n.__('select_russian'), callback_data: 'select_language_ru' }],
+                ],
+              },
+            });
           }
           break;
         case 'enter_profilename':
           if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
             currentUserState.set(userId, 'my_profile');
-            const photoPath = userProfile.profilePhoto.photoPath;
-            bot.sendPhoto(chatId, photoPath, {
-              caption: `${userProfile.profileName}, ${userProfile.age}\n 🌍${userProfile.location.locality}, ${userProfile.location.country}\n ${i18n.__('myprofile_message')} ${userProfile.gender}`,
-              reply_markup: {
-                keyboard: i18n.__('myprofile_buttons'),
-                resize_keyboard: true
-              }});
+            sendMyProfile(chatId, userProfile);
           } else {
             const updatedProfile = await Profile.findOneAndUpdate(
               { telegramId: userId },
@@ -470,33 +500,39 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             );
             console.log('User profileName updated:', updatedProfile);
         
-            // Вернитесь к предыдущему состоянию, например, 'my_profile'
             currentUserState.set(userId, 'my_profile');
-            const photoPath = updatedProfile.profilePhoto.photoPath;
-            bot.sendPhoto(chatId, photoPath, {
-              caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n ${i18n.__('myprofile_message')} ${updatedProfile.gender}`,
-              reply_markup: {
-                keyboard: i18n.__('myprofile_buttons'),
-                resize_keyboard: true
-              }
-            });
+            sendMyUpdatedProfile(chatId, updatedProfile);
           }
           break;
         case 'enter_birthday':
           if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
             currentUserState.set(userId, 'my_profile');
-            const photoPath = userProfile.profilePhoto.photoPath;
-            bot.sendPhoto(chatId, photoPath, {
-              caption: `${userProfile.profileName}, ${userProfile.age}\n 🌍${userProfile.location.locality}, ${userProfile.location.country}\n ${i18n.__('myprofile_message')} ${userProfile.gender}`,
-              reply_markup: {
-                keyboard: i18n.__('myprofile_buttons'),
-                resize_keyboard: true
-              }});
+            sendMyProfile(chatId, userProfile);
           } else {
             await handleBirthday(bot, currentUserState, User, Profile, i18n, msg);
+          }
+          break;
+        case 'enter_aboutme':
+          if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+            currentUserState.set(userId, 'my_profile');
+            sendMyProfile(chatId, userProfile);
+          } else {
+            const updatedProfile = await Profile.findOneAndUpdate(
+              { telegramId: userId },
+              { aboutMe: msg.text },
+              { new: true }
+            );
+            console.log('User aboutMe updated:', updatedProfile);
+        
             // Вернитесь к предыдущему состоянию, например, 'my_profile'
             currentUserState.set(userId, 'my_profile');
-            const photoPath = userProfile.profilePhoto.photoPath;
+            sendMyUpdatedProfile(chatId, updatedProfile);
+          }
+          break;
+        case 'select_language':
+          if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+            currentUserState.set(userId, 'my_profile');
+            sendMyProfile(chatId, userProfile);
           }
           break;
         case undefined:  //на время отладки меню
@@ -514,3 +550,21 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
     bot.sendMessage(chatId, 'Произошла ошибка при обработке сообщения.');
   }
 });
+
+function sendMyProfile(chatId, userProfile) {
+  bot.sendPhoto(chatId, userProfile.profilePhoto.photoPath, {
+    caption: `${userProfile.profileName}, ${userProfile.age}\n 🌍${userProfile.location.locality}, ${userProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${userProfile.gender}\➖➖➖➖➖➖➖➖➖➖\n${userProfile.aboutMe}`,
+    reply_markup: {
+      keyboard: i18n.__('myprofile_buttons'),
+      resize_keyboard: true
+    }});
+}
+
+function sendMyUpdatedProfile(chatId, updatedProfile) {
+  bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
+    caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${updatedProfile.gender}\➖➖➖➖➖➖➖➖➖➖\n${updatedProfile.aboutMe}`,
+    reply_markup: {
+      keyboard: i18n.__('myprofile_buttons'),
+      resize_keyboard: true
+    }});
+}

@@ -1,5 +1,4 @@
 // birthdayHandler.js
-import i18n from 'i18n';
 
 export
 async function handleBirthday(bot, currentUserState, User, Profile, i18n, msg) {
@@ -40,22 +39,21 @@ async function handleBirthday(bot, currentUserState, User, Profile, i18n, msg) {
                       }
                     }, 2000);
                     currentUserState.set(userId, 'select_photo');
-                  } else if (existingUser.globalUserState === 'active'){
+                  } else if (existingUser.globalUserState === 'active') {
                     setTimeout(async () => {
                       try {
                           await bot.deleteMessage(chatId, savedMessage.message_id);
-                          const photoPath = updatedProfile.profilePhoto.photoPath;
-                          await bot.sendPhoto(chatId, photoPath, {
-                            caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n ${i18n.__('myprofile_message')} ${updatedProfile.gender}`,
+                          await bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
+                            caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${updatedProfile.gender}\➖➖➖➖➖➖➖➖➖➖\n${updatedProfile.aboutMe}`,
                             reply_markup: {
                               keyboard: i18n.__('myprofile_buttons'),
                               resize_keyboard: true
-                            }
-                          });
+                            }});
                       } catch (error) {
                           console.error('Error:', error);
                       }
                     }, 2000);
+                    currentUserState.set(userId, 'my_profile');
                   }
               } catch (err) {
                   console.error('Error updating user birthday:', err);

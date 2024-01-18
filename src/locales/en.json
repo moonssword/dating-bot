@@ -1,7 +1,7 @@
 {
 	"registration_message": "🌟 Welcome to the new acquaintances application!",
 	"registration_button": "📝 Registration",
-	"choose_language": "🌐 Choose your language:",
+	"select_language_message": "🌐 Choose your language:",
 	"select_english": "🇬🇧 English",
 	"select_russian": "🇷🇺 Русский",
 	"select_language_text": "🇬🇧 The English language is set",
@@ -37,7 +37,7 @@
 		["👤 My profile", "🔍 Search settings"],
 		["🔙 Back", "?"]
 	],
-	"myprofile_message": "Gender: ",
+	"myprofile_gender_message": "Gender: ",
 	"myprofile_buttons": [
 		["🔠 Name", "📅 Date of birth"],
 		["📸 Photo", "✍️ About me"],
@@ -56,5 +56,7 @@
 	"back_button": [
 		["🔙 Back"]
 	],
-	"enter_profilename_message": "What is your name?"
+	"enter_profilename_message": "What is your name?",
+	"enter_aboutme_message": "Write a few lines about yourself"
+	
 }
