@@ -1,8 +1,8 @@
 // constants.js
 const BUTTONS = {
     BACK: {
-      en: '🔙 Back',
-      ru: '🔙 Назад'
+      en: '⬅️ Back',
+      ru: '⬅️ Назад'
     },
     MY_PROFILE: {
       en: '👤 My profile',

@@ -35,26 +35,26 @@
 	"settings_menu_message": "👇 Select the menu section",
 	"settings_menu_buttons": [
 		["👤 My profile", "🔍 Search settings"],
-		["🔙 Back", "?"]
+		["⬅️ Back", "?"]
 	],
 	"myprofile_gender_message": "Gender: ",
 	"myprofile_buttons": [
 		["🔠 Name", "📅 Date of birth"],
 		["📸 Photo", "✍️ About me"],
-		["🔙 Back", "🌐 Interface language"]
+		["⬅️ Back", "🌐 Interface language"]
 	],
 	"search_settings_message": "🔎 Your Search settings",
 	"search_settings_buttons": [
 		["📍 Location", "♂️ Gender"],
-		["🔙 Back", "🔢 Age"]
+		["⬅️ Back", "🔢 Age"]
 	],
 	"user_profiles_message": "Any Profile photo with info",
 	"user_profiles_buttons": [
 		["❌", "💚"],
-		["🔙 Back", "🎁 Make a gift"]
+		["⬅️ Back", "🎁 Make a gift"]
 	],
 	"back_button": [
-		["🔙 Back"]
+		["⬅️ Back"]
 	],
 	"enter_profilename_message": "What is your name?",
 	"enter_aboutme_message": "Write a few lines about yourself"

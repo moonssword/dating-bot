@@ -6,8 +6,8 @@ import 'dotenv/config';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import fetch from 'node-fetch';
-import fs from 'fs';
-import { join } from 'path';
+import AWS from 'aws-sdk';
+import { v4 as uuidv4 } from 'uuid';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -20,8 +20,14 @@ i18n.configure({
 });
 
 faceapi.env.monkeyPatch({ Canvas: canvas.Canvas, Image: canvas.Image, ImageData: canvas.ImageData });
-
 const MODEL_URL = './node_modules/face-api.js/weights';
+
+const s3 = new AWS.S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    endpoint: 's3.aeza.cloud',
+    s3ForcePathStyle: true,
+  });
 
 // Загрузка модели для распознавания лиц
 Promise.all([
@@ -36,6 +42,8 @@ Promise.all([
 export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserPhoto, Profile) {
         const userId = msg.from.id;
         const chatId = msg.chat.id;
+        const existingUser = await User.findOne({ telegramId: userId });
+
         if (!msg.photo || msg.photo.length === 0) {
             const savedMessage = await bot.sendMessage(chatId, i18n.__('wrong_photo_format'));
             setTimeout(async () => {
@@ -48,33 +56,24 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
             console.error('Invalid message format. Missing or empty photo property.');
             return;
         }
+
         // Получение информации о фотографии
         const photo = msg.photo[msg.photo.length - 1];
         const fileId = photo.file_id;
         console.log('Фото', msg.photo);
-        // Получение пользователя из базы данных по telegramId
-        const user = await User.findOne({ telegramId: userId });
-
-        // Проверка и создание папки /uploads/userphotos/'userId', если необходимо
-        const userPhotosDir = join(__dirname, 'uploads', 'userphotos', user._id.toString());
-        if (!fs.existsSync(userPhotosDir)){
-            fs.mkdirSync(userPhotosDir, { recursive: true });
-        }
 
         // Получение URL фотографии
         const file = await bot.getFile(fileId);
         const photoUrl = `https://api.telegram.org/file/bot${process.env.bot_token}/${file.file_path}`;
-        console.log('URL фотографии', photoUrl);
-
-        // Сохранение фотографии в папку
         const response = await fetch(photoUrl);
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const filePath = join(userPhotosDir, `${fileId}.jpg`);
-        fs.writeFileSync(filePath, buffer);
 
         // Уведомление пользователя о том, что фотография обрабатывается
-        const processingMessage = await bot.sendMessage(chatId, i18n.__('photo_checking_message'), { parse_mode: 'Markdown' });
+        const processingMessage = await bot.sendMessage(chatId, i18n.__('photo_checking_message'), { parse_mode: 'HTML' });
+
+        // Сохранение фотографии в S3
+        const { filePath, uniquePhotoId } = await uploadPhotoToS3(buffer);
 
         // Загрузка изображения
         const img = await canvas.loadImage(photoUrl);
@@ -101,70 +100,106 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
                 }
             }, 3000);
             return;
-        }
-
-        // Если на фото есть лицо
-        const agreementLink = 'https://telegra.ph/Afreement-01-11'; // Ссылка на соглашение
-
-        // Удаление сообщения photo_checking_message
-        if (processingMessage.message_id) {
-            await bot.deleteMessage(chatId, processingMessage.message_id);
-        }
-
-        // Вывод сообщения photo_verified_message на 1 секунды
-        const verifiedMessage = await bot.sendMessage(chatId, i18n.__('photo_verified_message'));
-        setTimeout(async () => {
-            // Удаление сообщения photo_verified_message
-            try {
-                await bot.deleteMessage(chatId, verifiedMessage.message_id);
-            } catch (error) {
-                console.error('Error:', error);
+        } else {
+            // Если на фото есть лицо
+            // Удаление сообщения photo_checking_message
+            if (processingMessage.message_id) {
+                await bot.deleteMessage(chatId, processingMessage.message_id);
             }
+            // Вывод сообщения photo_verified_message на 2 секунды
+            const verifiedMessage = await bot.sendMessage(chatId, i18n.__('photo_verified_message'));
+            if (existingUser.globalUserState === 'registration_process') {
+                setTimeout(async () => {
+                    // Удаление сообщения photo_verified_message
+                    try {
+                        const agreementLink = 'https://telegra.ph/Afreement-01-11'; // Ссылка на соглашение
+                        await bot.deleteMessage(chatId, verifiedMessage.message_id);
+                        await bot.sendMessage(chatId, i18n.__('confirm_agreement_message'), {
+                            reply_markup: {
+                                inline_keyboard: [
+                                    [{ text: i18n.__('confirm_agreement_link'), url: agreementLink }],
+                                    [{ text: i18n.__('confirm_agreement_button'), callback_data: 'confirm_agreement_button' }],
+                                ],
+                            },
+                        });
+                    } catch (error) {
+                        console.error('Error:', error);
+                    }
+                }, 2000);
+                currentUserState.set(userId, 'confirm_agreement');
 
-            // Вывод сообщения confirm_agreement_button
-            bot.sendMessage(chatId, i18n.__('confirm_agreement_message'), {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: i18n.__('confirm_agreement_link'), url: agreementLink }],
-                        [{ text: i18n.__('confirm_agreement_button'), callback_data: 'confirm_agreement_button' }],
-                    ],
-                },
-            });
+            } else if (existingUser.globalUserState === 'active') {
 
-            // Изменение статуса пользователя
-            currentUserState.set(userId, 'confirm_agreement');
-        }, 1000); // Ожидание 3 секунды перед выводом confirm_agreement_button
+                // Создание или обновление записи в коллекции usersPhotos
+                let userPhoto = await UserPhoto.findOne({ userId: existingUser._id });
+                if (!userPhoto) {
+                    userPhoto = new UserPhoto({ userId: existingUser._id, photos: [] });
+                }
 
-        // Создание или обновление записи в коллекции usersPhotos
-        let userPhoto = await UserPhoto.findOne({ userId: user._id });
-        if (!userPhoto) {
-            userPhoto = new UserPhoto({ userId: user._id, photos: [] });
-        }
+                // Добавление фотографии в массив
+                userPhoto.photos.push({
+                    filename: `${uniquePhotoId}.jpg`,
+                    path: filePath,
+                    size: buffer.length,
+                    uploadDate: new Date(),
+                    verifiedPhoto: detections.length > 0, // true если фотография прошла проверку
+                });
+                await userPhoto.save();
 
-        // Добавление фотографии в массив
-        userPhoto.photos.push({
-        filename: `${fileId}.jpg`,
-        path: filePath,
-        size: buffer.length,
-        uploadDate: new Date(),
-        verifiedPhoto: detections.length > 0, // true если фотография прошла проверку
-        });
-
-        // Сохранение или обновление данных в коллекции usersPhotos
-        await userPhoto.save();
-
-        // Обновление свойства profilePhoto в коллекции profiles
-        const lastPhotoId = userPhoto.photos[userPhoto.photos.length - 1]._id;
-        await Profile.findOneAndUpdate(
-            { userId: user._id },
-            { profilePhoto: {
-                photoId: lastPhotoId,
-                photoPath: filePath,
-                uploadDate: new Date(),
-                },
-            },
-            { new: true }
-        );
-        };
+                // Обновление свойства profilePhoto в коллекции profiles
+                const lastPhotoId = userPhoto.photos[userPhoto.photos.length - 1]._id;
+                const updatedProfile = await Profile.findOneAndUpdate(
+                    { userId: existingUser._id },
+                    { profilePhoto: {
+                        photoId: lastPhotoId,
+                        photoPath: filePath,
+                        uploadDate: new Date(),
+                        },
+                    },
+                    { new: true }
+                );
+                setTimeout(async () => {
+                    // Удаление сообщения photo_verified_message
+                    try {
+                        await bot.deleteMessage(chatId, verifiedMessage.message_id);
+                        currentUserState.set(userId, 'my_profile');
+                        await bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
+                            caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${updatedProfile.gender}\n 〰️〰️〰️〰️〰️〰️〰️〰️\n<i>${updatedProfile.aboutMe}</i>`,
+                            reply_markup: {
+                              keyboard: i18n.__('myprofile_buttons'),
+                              resize_keyboard: true
+                            },
+                            parse_mode: 'HTML',
+                            protect_content: true,
+                          });
+                    } catch (error) {
+                        console.error('Error:', error);
+                    }
+                }, 3000);
+            }
+    }
+};
 
 export default { handlePhoto };
+
+// Функция для загрузки фотографии на сервер S3
+async function uploadPhotoToS3(buffer) {
+    const uniquePhotoId = uuidv4();
+    const s3Key = `photos/${uniquePhotoId}.jpg`;
+    const s3Params = {
+        Bucket: 'dating-storage',
+        Key: s3Key,
+        Body: buffer,
+        ContentType: 'image/jpeg',
+        ACL: 'public-read', // Настройте ACL по вашим требованиям
+    };
+
+    try {
+        await s3.upload(s3Params).promise();
+        console.log('Photo successfully uploaded to S3');
+        return { filePath: `https://dating-storage.s3.aeza.cloud/${s3Key}`, uniquePhotoId };
+    } catch (error) {
+        console.error('Error uploading photo to S3:', error);
+        throw new Error('Error uploading photo to S3');
+    }
+}

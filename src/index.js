@@ -397,11 +397,14 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
               }});
           } else if (msg.text === BUTTONS.PROFILES.en || msg.text === BUTTONS.PROFILES.ru) {
             currentUserState.set(userId, 'user_profiles');
-            bot.sendMessage(chatId, i18n.__('user_profiles_message'), {
+            bot.sendAnimation(chatId, 'https://gifki.su/Uploads/Media/Nov22/Sun13/1455/9cc1a47.gif', {
+              caption: i18n.__('user_profiles_message'),
               reply_markup: {
                 keyboard: i18n.__('user_profiles_buttons'),
-                resize_keyboard: true
-              }});
+                resize_keyboard: true,
+              },
+              protect_content: true,
+            });
           } //далее условия для 2 оставшихся пунктов меню
           break;
         case 'settings_menu':
@@ -486,6 +489,13 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                 ],
               },
             });
+          } else if (msg.text === BUTTONS.PHOTO.en || msg.text === BUTTONS.PHOTO.ru) {
+            currentUserState.set(userId, 'select_photo');
+            bot.sendMessage(chatId, i18n.__('request_photo_message_text'), {
+              reply_markup: {
+                keyboard: i18n.__('back_button'),
+                resize_keyboard: true
+              }});
           }
           break;
         case 'enter_profilename':
@@ -535,6 +545,14 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             sendMyProfile(chatId, userProfile);
           }
           break;
+        case 'select_photo':
+          if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+            currentUserState.set(userId, 'my_profile');
+            sendMyProfile(chatId, userProfile);
+          } else {
+            await handlePhoto(bot, currentUserState, i18n, msg, User, UserPhoto, Profile);
+          }
+          break;
         case undefined:  //на время отладки меню
             currentUserState.set(userId, 'main_menu');
             bot.sendMessage(chatId, i18n.__('main_menu_message'), {
@@ -553,18 +571,24 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
 
 function sendMyProfile(chatId, userProfile) {
   bot.sendPhoto(chatId, userProfile.profilePhoto.photoPath, {
-    caption: `${userProfile.profileName}, ${userProfile.age}\n 🌍${userProfile.location.locality}, ${userProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${userProfile.gender}\➖➖➖➖➖➖➖➖➖➖\n${userProfile.aboutMe}`,
+    caption: `${userProfile.profileName}, ${userProfile.age}\n 🌍${userProfile.location.locality}, ${userProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${userProfile.gender}\n 〰️〰️〰️〰️〰️〰️〰️〰️\n<i>${userProfile.aboutMe}</i>`,
     reply_markup: {
       keyboard: i18n.__('myprofile_buttons'),
       resize_keyboard: true
-    }});
+    },
+    parse_mode: 'HTML',
+    protect_content: true,
+  });
 }
 
 function sendMyUpdatedProfile(chatId, updatedProfile) {
   bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
-    caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${updatedProfile.gender}\➖➖➖➖➖➖➖➖➖➖\n${updatedProfile.aboutMe}`,
+    caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${updatedProfile.gender}\n 〰️〰️〰️〰️〰️〰️〰️〰️\n<i>${updatedProfile.aboutMe}</i>`,
     reply_markup: {
       keyboard: i18n.__('myprofile_buttons'),
       resize_keyboard: true
-    }});
+    },
+    parse_mode: 'HTML',
+    protect_content: true,
+  });
 }

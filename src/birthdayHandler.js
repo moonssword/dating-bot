@@ -43,8 +43,11 @@ async function handleBirthday(bot, currentUserState, User, Profile, i18n, msg) {
                     setTimeout(async () => {
                       try {
                           await bot.deleteMessage(chatId, savedMessage.message_id);
+                          const genderText = i18n.language === 'ru'
+                          ? (updatedProfile.gender === 'male' ? 'мужской' : 'женский')
+                          : (updatedProfile.gender === 'male' ? 'male' : 'female');
                           await bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
-                            caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${updatedProfile.gender}\➖➖➖➖➖➖➖➖➖➖\n${updatedProfile.aboutMe}`,
+                            caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${genderText}\💠💠💠\n${updatedProfile.aboutMe}`,
                             reply_markup: {
                               keyboard: i18n.__('myprofile_buttons'),
                               resize_keyboard: true
