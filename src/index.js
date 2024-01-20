@@ -65,6 +65,10 @@ const profileSchema = new mongoose.Schema({
       min: Number,
       max: Number,
     },
+    preferredLocation: {
+      locality: String,
+      country: String,
+    },
   },
   profilePhoto: {
     photoId: mongoose.Schema.Types.ObjectId,
@@ -135,10 +139,20 @@ bot.onText(/\/start/, async (msg) => {
         userId: createdUser._id,
         telegramId: createdUser.telegramId,
         profileName: createdUser.firstName,
+        'preferences.ageRange.min': 18,
+        'preferences.ageRange.max': 65,
         // Add other profile properties as needed
       };
       const createdProfile = await Profile.create(profileData);
       console.log('Profile created for the new user:', createdProfile);
+
+      const userPhotoData = {
+        userId: createdUser._id,
+        telegramId: createdUser.telegramId,
+      };
+      const createdUserPhoto = await UserPhoto.create(userPhotoData);
+      console.log('UserPhoto created for the new user:', createdUserPhoto);
+
     } else {
       console.log('User already exists:', existingUser);
     }
@@ -201,14 +215,13 @@ bot.on('callback_query', async (callbackQuery) => {
         { languageCode: language },
         { new: true }
       );
-
       console.log('User language updated:', updatedUser);
 
       bot.deleteMessage(chatId, messageId);
 
         if (existingUser.globalUserState === 'registration_process') {
           bot.answerCallbackQuery( callbackQuery.id, {text: i18n.__('select_language_text'), show_alert: false} );
-          bot.sendMessage(chatId, i18n.__('select_gender'), {
+          bot.sendMessage(chatId, i18n.__('select_gender_message'), {
             reply_markup: {
               inline_keyboard: [
                 [
@@ -237,28 +250,44 @@ bot.on('callback_query', async (callbackQuery) => {
       const gender = data === 'select_male' ? 'male' : 'female';
       const genderText = gender === 'male' ? i18n.__('gender_selected_male') : i18n.__('gender_selected_female');
 
-      const updatedProfile = await Profile.findOneAndUpdate(
-        { telegramId: userId },
-        { gender: gender },
-        { new: true }
-      );
-
-      console.log('User gender updated:', updatedProfile);
-
-      bot.answerCallbackQuery(callbackQuery.id, {text: genderText, show_alert: false} );
-      bot.deleteMessage(chatId, messageId);
-
-      bot.sendMessage(chatId, i18n.__('request_location_or_city'), {
-        reply_markup: {
-          keyboard: [
-            [
-              { text: i18n.__('send_location'), request_location: true },
-            ],
-          ],
-          resize_keyboard: true,
-        },
-      });
-      currentUserState.set(userId, 'select_city');
+        if (existingUser.globalUserState === 'registration_process') {
+          const updatedProfile = await Profile.findOneAndUpdate(
+            { telegramId: userId },
+            { gender: gender,
+              'preferences.preferredGender': gender === 'male' ? 'female' : 'male',
+            },
+            { new: true }
+          );
+    
+          console.log('User gender updated:', updatedProfile);
+    
+          bot.answerCallbackQuery(callbackQuery.id, {text: genderText, show_alert: false} );
+          bot.deleteMessage(chatId, messageId);
+    
+          bot.sendMessage(chatId, i18n.__('request_location_or_city'), {
+            reply_markup: {
+              keyboard: [
+                [
+                  { text: i18n.__('send_location'), request_location: true },
+                ],
+              ],
+              resize_keyboard: true,
+            },
+          });
+          currentUserState.set(userId, 'select_city');
+        } else if (existingUser.globalUserState === 'active') {
+          const updatedProfile = await Profile.findOneAndUpdate(
+            { telegramId: userId },
+            { 'preferences.preferredGender': gender },
+            { new: true }
+          );
+          console.log('User gender preference updated:', updatedProfile);
+    
+          bot.answerCallbackQuery(callbackQuery.id, {text: genderText, show_alert: false} );
+          bot.deleteMessage(chatId, messageId);
+          currentUserState.set(userId, 'search_settings');
+          sendUpdatedSearchSettings(chatId, updatedProfile);
+        }
 
     } else if (data.includes('locationId')) {
       // Обработка выбора города
@@ -284,6 +313,8 @@ bot.on('callback_query', async (callbackQuery) => {
             'location.country': selectedCity.country || selectedCity.display_name.split(', ')[selectedCity.display_name.split(', ').length - 1],
             'location.latitude': selectedCity.latitude,
             'location.longitude': selectedCity.longitude,
+            'preferences.preferredLocation.locality': selectedCity.locality,
+            'preferences.preferredLocation.country': selectedCity.country || selectedCity.display_name.split(', ')[selectedCity.display_name.split(', ').length - 1],
           },
           { new: true }
         );
@@ -396,8 +427,8 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                 resize_keyboard: true
               }});
           } else if (msg.text === BUTTONS.PROFILES.en || msg.text === BUTTONS.PROFILES.ru) {
-            currentUserState.set(userId, 'user_profiles');
-            bot.sendAnimation(chatId, 'https://gifki.su/Uploads/Media/Nov22/Sun13/1455/9cc1a47.gif', {
+            currentUserState.set(userId, 'viewing_profiles');
+            bot.sendAnimation(chatId, 'https://dating-storage.s3.aeza.cloud/gif/9cc1a47.gif', {
               caption: i18n.__('user_profiles_message'),
               reply_markup: {
                 keyboard: i18n.__('user_profiles_buttons'),
@@ -413,11 +444,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             sendMyProfile(chatId, userProfile);
           } else if (msg.text === BUTTONS.SEARCH_SETTINGS.en || msg.text === BUTTONS.SEARCH_SETTINGS.ru) {
             currentUserState.set(userId, 'search_settings');
-            bot.sendMessage(chatId, i18n.__('search_settings_message'), {
-              reply_markup: {
-                keyboard: i18n.__('search_settings_buttons'),
-                resize_keyboard: true
-              }});
+            sendSearchSettings(chatId, userProfile);
           } else if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
             currentUserState.set(userId, 'main_menu');
             bot.sendMessage(chatId, i18n.__('main_menu_message'), {
@@ -427,7 +454,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
               }});
           }
           break;
-        case 'user_profiles':
+        case 'viewing_profiles':
           //Обработка анкет
           if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
             currentUserState.set(userId, 'main_menu');
@@ -445,6 +472,26 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             bot.sendMessage(chatId, i18n.__('settings_menu_message'), {
               reply_markup: {
                 keyboard: i18n.__('settings_menu_buttons'),
+                resize_keyboard: true
+              }});
+          } else if (msg.text === BUTTONS.GENDER.en || msg.text === BUTTONS.GENDER.ru) {
+            currentUserState.set(userId, 'select_prefer_gender');
+            bot.sendMessage(chatId, i18n.__('select_prefer_gender_message'), {
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: i18n.__('select_male'), callback_data: 'select_male' },
+                    { text: i18n.__('select_female'), callback_data: 'select_female' },
+                  ],
+                ],
+              },
+              parse_mode: 'HTML',
+            });
+          } else if (msg.text === BUTTONS.AGE_RANGE.en || msg.text === BUTTONS.AGE_RANGE.ru) {
+            currentUserState.set(userId, 'set_age_range');
+            bot.sendMessage(chatId, i18n.__('set_age_range_message'), {
+              reply_markup: {
+                keyboard: i18n.__('back_button'),
                 resize_keyboard: true
               }});
           }
@@ -543,6 +590,15 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
             currentUserState.set(userId, 'my_profile');
             sendMyProfile(chatId, userProfile);
+          } else {
+            const wrongSelected = await bot.sendMessage(chatId, i18n.__('wrong_choise_message'));
+            setTimeout(async () => {
+                try {
+                    await bot.deleteMessage(chatId, wrongSelected.message_id);
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            }, 2000);
           }
           break;
         case 'select_photo':
@@ -553,13 +609,38 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             await handlePhoto(bot, currentUserState, i18n, msg, User, UserPhoto, Profile);
           }
           break;
+        case 'select_prefer_gender':
+          if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+            currentUserState.set(userId, 'search_settings');
+            sendSearchSettings(chatId, userProfile);
+          } else {
+            const wrongSelected = await bot.sendMessage(chatId, i18n.__('wrong_choise_message'));
+            setTimeout(async () => {
+                try {
+                    await bot.deleteMessage(chatId, wrongSelected.message_id);
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            }, 2000);
+          }
+          break;
+        case 'set_age_range':
+          if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+            currentUserState.set(userId, 'search_settings');
+            sendSearchSettings(chatId, userProfile);
+          } else {
+            handleAgeRangeInput(userId, msg.text, chatId);
+          }
+          break;
         case undefined:  //на время отладки меню
             currentUserState.set(userId, 'main_menu');
             bot.sendMessage(chatId, i18n.__('main_menu_message'), {
               reply_markup: {
                 keyboard: i18n.__('main_menu_buttons'),
                 resize_keyboard: true
-              }});
+              },
+              parse_mode: 'HTML',
+            });
           break;
       }
     }
@@ -570,8 +651,9 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
 });
 
 function sendMyProfile(chatId, userProfile) {
+  let aboutMeText = userProfile.aboutMe ? `<blockquote><i>${userProfile.aboutMe}</i></blockquote>` : '';
   bot.sendPhoto(chatId, userProfile.profilePhoto.photoPath, {
-    caption: `${userProfile.profileName}, ${userProfile.age}\n 🌍${userProfile.location.locality}, ${userProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${userProfile.gender}\n 〰️〰️〰️〰️〰️〰️〰️〰️\n<i>${userProfile.aboutMe}</i>`,
+    caption: `${userProfile.profileName}, ${userProfile.age}\n 🌍${userProfile.location.locality}, ${userProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${userProfile.gender}\n\n${aboutMeText}`,
     reply_markup: {
       keyboard: i18n.__('myprofile_buttons'),
       resize_keyboard: true
@@ -582,8 +664,9 @@ function sendMyProfile(chatId, userProfile) {
 }
 
 function sendMyUpdatedProfile(chatId, updatedProfile) {
+  let aboutMeText = updatedProfile.aboutMe ? `<blockquote><i>${updatedProfile.aboutMe}</i></blockquote>` : '';
   bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
-    caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${updatedProfile.gender}\n 〰️〰️〰️〰️〰️〰️〰️〰️\n<i>${updatedProfile.aboutMe}</i>`,
+    caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${updatedProfile.gender}\n\n${aboutMeText}`,
     reply_markup: {
       keyboard: i18n.__('myprofile_buttons'),
       resize_keyboard: true
@@ -591,4 +674,60 @@ function sendMyUpdatedProfile(chatId, updatedProfile) {
     parse_mode: 'HTML',
     protect_content: true,
   });
+}
+
+function sendSearchSettings(chatId, userProfile) {
+  bot.sendMessage(chatId, `<u>${i18n.__('search_settings_message')}</u>\n ${i18n.__('myprofile_gender_message')} ${userProfile.preferences.preferredGender}\n ${i18n.__('age_range_message')} ${userProfile.preferences.ageRange.min}-${userProfile.preferences.ageRange.max}`, {
+    reply_markup: {
+      keyboard: i18n.__('search_settings_buttons'),
+      resize_keyboard: true
+    },
+    parse_mode: 'HTML',
+  });
+}
+
+function sendUpdatedSearchSettings(chatId, updatedProfile) {
+  bot.sendMessage(chatId, `<u>${i18n.__('search_settings_message')}</u>\n ${i18n.__('myprofile_gender_message')} ${updatedProfile.preferences.preferredGender}\n ${i18n.__('age_range_message')} ${updatedProfile.preferences.ageRange.min}-${updatedProfile.preferences.ageRange.max}`, {
+    reply_markup: {
+      keyboard: i18n.__('search_settings_buttons'),
+      resize_keyboard: true
+    },
+    parse_mode: 'HTML',
+  });
+}
+
+async function handleAgeRangeInput(userId, input, chatId) {
+  try {
+    const [min, max] = input.match(/\d+/g).map(Number);
+
+    if (isNaN(min) || isNaN(max)) {
+      const wrongInput = await bot.sendMessage(chatId, i18n.__('wrong_agerange_message'));
+      setTimeout(async () => {
+          try {
+              await bot.deleteMessage(chatId, wrongInput.message_id);
+          } catch (error) {
+              console.error('Error:', error);
+          }
+      }, 2000);
+    } else {
+      const newMin = Math.min(min, max);
+      const newMax = Math.max(min, max);
+      const updatedProfile = await Profile.findOneAndUpdate(
+        { telegramId: userId },
+        {
+          $set: {
+            'preferences.ageRange.min': newMin,
+            'preferences.ageRange.max': newMax,
+          },
+        },
+        { upsert: true, new: true }
+      );
+
+      currentUserState.set(userId, 'search_settings');
+      sendUpdatedSearchSettings(chatId, updatedProfile);
+    }
+  } catch (error) {
+    console.error('Error handling age range input:', error);
+    bot.sendMessage(chatId, i18n.__('error_agerange_input_message'));
+  }
 }

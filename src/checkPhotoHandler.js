@@ -43,7 +43,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
         const userId = msg.from.id;
         const chatId = msg.chat.id;
         const existingUser = await User.findOne({ telegramId: userId });
-
+        console.log(msg);
         if (!msg.photo || msg.photo.length === 0) {
             const savedMessage = await bot.sendMessage(chatId, i18n.__('wrong_photo_format'));
             setTimeout(async () => {
@@ -70,7 +70,13 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
         const buffer = Buffer.from(arrayBuffer);
 
         // Уведомление пользователя о том, что фотография обрабатывается
-        const processingMessage = await bot.sendMessage(chatId, i18n.__('photo_checking_message'), { parse_mode: 'HTML' });
+        const processingMessage = await bot.sendAnimation(chatId, 'https://dating-storage.s3.aeza.cloud/gif/bean-mr.gif', {
+            caption: i18n.__('photo_checking_message'),
+            reply_markup: {
+              remove_keyboard: true,
+            },
+            protect_content: true,
+          });
 
         // Сохранение фотографии в S3
         const { filePath, uniquePhotoId } = await uploadPhotoToS3(buffer);
@@ -90,17 +96,51 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
             if (processingMessage.message_id) {
                 await bot.deleteMessage(chatId, processingMessage.message_id);
             }
-
             // Удаление сообщения о том, что фотография отклонена через 3 секунды
             setTimeout(async () => {
                 try {
                     await bot.deleteMessage(chatId, rejectionMessage.message_id);
+                    await bot.sendMessage(chatId, i18n.__('request_photo_message_text'), {
+                        reply_markup: {
+                          keyboard: i18n.__('back_button'),
+                          resize_keyboard: true
+                        }});
                 } catch (error) {
                     console.error('Error:', error);
                 }
             }, 3000);
             return;
         } else {
+            // Создание или обновление записи в коллекции usersPhotos
+            let userPhoto = await UserPhoto.findOne({ userId: existingUser._id });
+            if (!userPhoto) {
+                userPhoto = new UserPhoto({ userId: existingUser._id, photos: [] });
+            }
+
+            // Добавление фотографии в массив
+            userPhoto.photos.push({
+                filename: `${uniquePhotoId}.jpg`,
+                path: filePath,
+                size: buffer.length,
+                uploadDate: new Date(),
+                verifiedPhoto: detections.length > 0, // true если фотография прошла проверку
+            });
+            await userPhoto.save();
+
+            // Обновление свойства profilePhoto в коллекции profiles
+            const lastPhotoId = userPhoto.photos[userPhoto.photos.length - 1]._id;
+            const updatedProfile = await Profile.findOneAndUpdate(
+                { userId: existingUser._id },
+                { profilePhoto: {
+                    photoId: lastPhotoId,
+                    photoPath: filePath,
+                    uploadDate: new Date(),
+                    },
+                },
+                { new: true }
+            );
+            console.log('User profilePhoto updated', updatedProfile );
+
             // Если на фото есть лицо
             // Удаление сообщения photo_checking_message
             if (processingMessage.message_id) {
@@ -129,35 +169,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
                 currentUserState.set(userId, 'confirm_agreement');
 
             } else if (existingUser.globalUserState === 'active') {
-
-                // Создание или обновление записи в коллекции usersPhotos
-                let userPhoto = await UserPhoto.findOne({ userId: existingUser._id });
-                if (!userPhoto) {
-                    userPhoto = new UserPhoto({ userId: existingUser._id, photos: [] });
-                }
-
-                // Добавление фотографии в массив
-                userPhoto.photos.push({
-                    filename: `${uniquePhotoId}.jpg`,
-                    path: filePath,
-                    size: buffer.length,
-                    uploadDate: new Date(),
-                    verifiedPhoto: detections.length > 0, // true если фотография прошла проверку
-                });
-                await userPhoto.save();
-
-                // Обновление свойства profilePhoto в коллекции profiles
-                const lastPhotoId = userPhoto.photos[userPhoto.photos.length - 1]._id;
-                const updatedProfile = await Profile.findOneAndUpdate(
-                    { userId: existingUser._id },
-                    { profilePhoto: {
-                        photoId: lastPhotoId,
-                        photoPath: filePath,
-                        uploadDate: new Date(),
-                        },
-                    },
-                    { new: true }
-                );
+                
                 setTimeout(async () => {
                     // Удаление сообщения photo_verified_message
                     try {

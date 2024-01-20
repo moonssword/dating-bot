@@ -5,7 +5,8 @@
 	"select_english": "🇬🇧 English",
 	"select_russian": "🇷🇺 Русский",
 	"select_language_text": "🇬🇧 The English language is set",
-	"select_gender": "Specify your gender:",
+	"select_gender_message": "Specify your gender:",
+	"select_prefer_gender_message": "Who are you looking for?",
 	"select_male": "🧑🏻 Male",
 	"select_female": "👩🏻 Female",
 	"gender_selected_male": "You select 🧑🏻 female gender.",
@@ -19,7 +20,7 @@
 	"invalid_birthday_format": "⚠️ The date of birth is incorrect or an unrealistic age is specified",
 	"birthday_saved": "💾 Date of birth saved",
 	"birthday_not_saved": "❌ Date of birth not saved",
-	"request_photo_message_text": "📸 Please, send your photo\n 📎 Click on the paper clip and\n attach no more than 1️⃣ photo",
+	"request_photo_message_text": "📸 Please, send your photo\n 📎 Click on the paper clip and\n attach your photo",
 	"wrong_photo_format": "⚠️ Wrong photo format\n Please, send correct photo",
 	"photo_rejected_message": "⚠️ The uploaded photo was rejected\n Please, upload another photo",
 	"photo_checking_message": "⌛️ Please wait. Your photo is being checked... ",
@@ -45,8 +46,8 @@
 	],
 	"search_settings_message": "🔎 Your Search settings",
 	"search_settings_buttons": [
-		["📍 Location", "♂️ Gender"],
-		["⬅️ Back", "🔢 Age"]
+		["📍 Location", "🚻 Gender"],
+		["⬅️ Back", "🔢 Age range"]
 	],
 	"user_profiles_message": "Any Profile photo with info",
 	"user_profiles_buttons": [
@@ -57,6 +58,11 @@
 		["⬅️ Back"]
 	],
 	"enter_profilename_message": "What is your name?",
-	"enter_aboutme_message": "Write a few lines about yourself"
+	"enter_aboutme_message": "✍️ Write a few lines about yourself",
+	"wrong_choise_message": "👆 Select one of the options or click ⬅️ back",
+	"wrong_agerange_message": "⚠️ The age range is incorrect. Please enter integers",
+	"error_agerange_input_message": "An error occurred while processing the entered age range.",
+	"set_age_range_message": "⌨️ Send a range of ages (for example: 18-35)",
+	"age_range_message": "Age range:"
 	
 }
