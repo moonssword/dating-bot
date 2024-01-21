@@ -9,13 +9,14 @@
 	"select_prefer_gender_message": "Who are you looking for?",
 	"select_male": "🧑🏻 Male",
 	"select_female": "👩🏻 Female",
-	"gender_selected_male": "You select 🧑🏻 female gender.",
-	"gender_selected_female": "You select 👩🏻 male gender.",
+	"gender_selected_male": "You select 🧑🏻 male gender.",
+	"gender_selected_female": "You select 👩🏻 female gender.",
 	"request_location_or_city": "🌍 Enter your locality or send a geolocation for automatic detection",
 	"send_location": "📍 Send location",
-	"list_of_cities": "👇 Select your city from the list:",
+	"list_of_cities": "👇 Select city from the list:",
 	"city_not_found": "⚠️ The city was not found",
 	"location_notification": "📍🌍 You are located in ",
+	"preferred_location_notification": "📍🗺️ You are looking in ",
 	"enter_birthday_message": "📅 Please, enter your date of birth\n  in DD.MM.YYYY format",
 	"invalid_birthday_format": "⚠️ The date of birth is incorrect or an unrealistic age is specified",
 	"birthday_saved": "💾 Date of birth saved",
@@ -44,7 +45,7 @@
 		["📸 Photo", "✍️ About me"],
 		["⬅️ Back", "🌐 Interface language"]
 	],
-	"search_settings_message": "🔎 Your Search settings",
+	"search_settings_message": "🔎 <u>Your Search settings</u>\n",
 	"search_settings_buttons": [
 		["📍 Location", "🚻 Gender"],
 		["⬅️ Back", "🔢 Age range"]
@@ -63,6 +64,8 @@
 	"wrong_agerange_message": "⚠️ The age range is incorrect. Please enter integers",
 	"error_agerange_input_message": "An error occurred while processing the entered age range.",
 	"set_age_range_message": "⌨️ Send a range of ages (for example: 18-35)",
-	"age_range_message": "Age range:"
+	"age_range_message": "Age range:",
+	"location_message": "Location:",
+	"set_prefer_location_message": "🗺️ Enter the city to search for couples"
 	
 }

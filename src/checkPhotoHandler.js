@@ -57,6 +57,15 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
             return;
         }
 
+        // Уведомление пользователя о том, что фотография обрабатывается
+        const processingMessage = await bot.sendAnimation(chatId, 'https://dating-storage.s3.aeza.cloud/gif/bean-mr.gif', {
+            caption: i18n.__('photo_checking_message'),
+            reply_markup: {
+                remove_keyboard: true,
+            },
+            protect_content: true,
+            });
+
         // Получение информации о фотографии
         const photo = msg.photo[msg.photo.length - 1];
         const fileId = photo.file_id;
@@ -68,15 +77,6 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
         const response = await fetch(photoUrl);
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-
-        // Уведомление пользователя о том, что фотография обрабатывается
-        const processingMessage = await bot.sendAnimation(chatId, 'https://dating-storage.s3.aeza.cloud/gif/bean-mr.gif', {
-            caption: i18n.__('photo_checking_message'),
-            reply_markup: {
-              remove_keyboard: true,
-            },
-            protect_content: true,
-          });
 
         // Сохранение фотографии в S3
         const { filePath, uniquePhotoId } = await uploadPhotoToS3(buffer);
@@ -176,7 +176,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
                         await bot.deleteMessage(chatId, verifiedMessage.message_id);
                         currentUserState.set(userId, 'my_profile');
                         await bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
-                            caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${updatedProfile.gender}\n 〰️〰️〰️〰️〰️〰️〰️〰️\n<i>${updatedProfile.aboutMe}</i>`,
+                            caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${updatedProfile.gender}\n\n${aboutMeText}`,
                             reply_markup: {
                               keyboard: i18n.__('myprofile_buttons'),
                               resize_keyboard: true

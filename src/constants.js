@@ -32,9 +32,9 @@ const BUTTONS = {
       en: '🌐 Interface language',
       ru: '🌐 Язык интерфейса'
     },
-    LOCATION: {
+    PREFER_LOCATION: {
       en: '📍 Location',
-      ru: '📍 Местоположение'
+      ru: '📍 Локация'
     },
     GENDER: {
       en: '🚻 Gender',

@@ -254,7 +254,7 @@ bot.on('callback_query', async (callbackQuery) => {
           const updatedProfile = await Profile.findOneAndUpdate(
             { telegramId: userId },
             { gender: gender,
-              'preferences.preferredGender': gender === 'male' ? 'female' : 'male',
+              'preferences.preferredGender': gender === 'male' ? 'male' : 'female',
             },
             { new: true }
           );
@@ -303,29 +303,48 @@ bot.on('callback_query', async (callbackQuery) => {
 
         const selectedCity = locationData[cityIndex];
 
-        const updatedProfile = await Profile.findOneAndUpdate(
-          { telegramId: userId },
-          {
-            'location.locality': selectedCity.locality || '',
-            'location.display_name': selectedCity.display_name || '',
-            'location.addresstype': selectedCity.addresstype || '',
-            'location.state': selectedCity.state || '',
-            'location.country': selectedCity.country || selectedCity.display_name.split(', ')[selectedCity.display_name.split(', ').length - 1],
-            'location.latitude': selectedCity.latitude,
-            'location.longitude': selectedCity.longitude,
-            'preferences.preferredLocation.locality': selectedCity.locality,
-            'preferences.preferredLocation.country': selectedCity.country || selectedCity.display_name.split(', ')[selectedCity.display_name.split(', ').length - 1],
-          },
-          { new: true }
-        );
+        if (existingUser.globalUserState === 'registration_process') {
 
-        console.log('User location updated:', updatedProfile);
+          const updatedProfile = await Profile.findOneAndUpdate(
+            { telegramId: userId },
+            {
+              'location.locality': selectedCity.locality || '',
+              'location.display_name': selectedCity.display_name || '',
+              'location.addresstype': selectedCity.addresstype || '',
+              'location.state': selectedCity.state || '',
+              'location.country': selectedCity.country || selectedCity.display_name.split(', ')[selectedCity.display_name.split(', ').length - 1],
+              'location.latitude': selectedCity.latitude,
+              'location.longitude': selectedCity.longitude,
+              'preferences.preferredLocation.locality': selectedCity.locality,
+              'preferences.preferredLocation.country': selectedCity.country || selectedCity.display_name.split(', ')[selectedCity.display_name.split(', ').length - 1],
+            },
+            { new: true }
+          );
+          console.log('User location updated:', updatedProfile);
+  
+          bot.answerCallbackQuery(callbackQuery.id, {text: `${i18n.__('location_notification')} ${selectedCity.display_name}`, show_alert: false});
+          bot.deleteMessage(chatId, messageId);
+  
+          bot.sendMessage(chatId, i18n.__('enter_birthday_message'), { reply_markup: { remove_keyboard: true } }) // Текст ввода даты рождения
+          currentUserState.set(userId, 'enter_birthday');
+        } else if (existingUser.globalUserState === 'active') {
 
-        bot.answerCallbackQuery(callbackQuery.id, {text: `${i18n.__('location_notification')} ${selectedCity.display_name}`, show_alert: false});
-        bot.deleteMessage(chatId, messageId);
+            const updatedProfile = await Profile.findOneAndUpdate(
+            { telegramId: userId },
+            {
+              'preferences.preferredLocation.locality': selectedCity.locality,
+              'preferences.preferredLocation.country': selectedCity.country || selectedCity.display_name.split(', ')[selectedCity.display_name.split(', ').length - 1],
+            },
+            { new: true }
+          );
+          console.log('User preferred location updated:', updatedProfile);
 
-        bot.sendMessage(chatId, i18n.__('enter_birthday_message'), { reply_markup: { remove_keyboard: true } }) // Текст ввода даты рождения
-        currentUserState.set(userId, 'enter_birthday');
+          bot.answerCallbackQuery(callbackQuery.id, {text: `${i18n.__('preferred_location_notification')} ${updatedProfile.preferences.preferredLocation.locality}, ${updatedProfile.preferences.preferredLocation.country}`, show_alert: false});
+          bot.deleteMessage(chatId, messageId);
+
+          currentUserState.set(userId, 'search_settings');
+          sendUpdatedSearchSettings(chatId, updatedProfile);
+        }
       }
     } else if ('confirm_agreement_button' === data) {
       // Обработка нажатия кнопки "Продолжить" с соглашением
@@ -494,6 +513,15 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                 keyboard: i18n.__('back_button'),
                 resize_keyboard: true
               }});
+          } else if (msg.text === BUTTONS.PREFER_LOCATION.en || msg.text === BUTTONS.PREFER_LOCATION.ru) {
+            currentUserState.set(userId, 'set_prefer_location');
+            bot.sendMessage(chatId, i18n.__('set_prefer_location_message'), {
+              reply_markup: {
+                keyboard: i18n.__('back_button'),
+                resize_keyboard: true
+              },
+              parse_mode: 'HTML',
+            });
           }
           break;
         case 'my_profile':
@@ -632,6 +660,14 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             handleAgeRangeInput(userId, msg.text, chatId);
           }
           break;
+        case 'set_prefer_location':
+          if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+            currentUserState.set(userId, 'search_settings');
+            sendSearchSettings(chatId, userProfile);
+          } else {
+            await getFromCityName(cityName, bot, chatId, locationDataMap);
+          }
+          break;
         case undefined:  //на время отладки меню
             currentUserState.set(userId, 'main_menu');
             bot.sendMessage(chatId, i18n.__('main_menu_message'), {
@@ -687,7 +723,7 @@ function sendSearchSettings(chatId, userProfile) {
 }
 
 function sendUpdatedSearchSettings(chatId, updatedProfile) {
-  bot.sendMessage(chatId, `<u>${i18n.__('search_settings_message')}</u>\n ${i18n.__('myprofile_gender_message')} ${updatedProfile.preferences.preferredGender}\n ${i18n.__('age_range_message')} ${updatedProfile.preferences.ageRange.min}-${updatedProfile.preferences.ageRange.max}`, {
+  bot.sendMessage(chatId, `<u>${i18n.__('search_settings_message')}</u>\n ${i18n.__('myprofile_gender_message')} ${updatedProfile.preferences.preferredGender}\n ${i18n.__('age_range_message')} ${updatedProfile.preferences.ageRange.min}-${updatedProfile.preferences.ageRange.max}\n ${i18n.__('location_message')} ${updatedProfile.preferences.preferredLocation.locality}, ${updatedProfile.preferences.preferredLocation.country}`, {
     reply_markup: {
       keyboard: i18n.__('search_settings_buttons'),
       resize_keyboard: true

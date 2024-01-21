@@ -47,11 +47,14 @@ async function handleBirthday(bot, currentUserState, User, Profile, i18n, msg) {
                           ? (updatedProfile.gender === 'male' ? 'мужской' : 'женский')
                           : (updatedProfile.gender === 'male' ? 'male' : 'female');
                           await bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
-                            caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${genderText}\💠💠💠\n${updatedProfile.aboutMe}`,
+                            caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${updatedProfile.gender}\n\n${aboutMeText}`,
                             reply_markup: {
                               keyboard: i18n.__('myprofile_buttons'),
                               resize_keyboard: true
-                            }});
+                            },
+                            parse_mode: 'HTML',
+                            protect_content: true,
+                          });
                       } catch (error) {
                           console.error('Error:', error);
                       }
