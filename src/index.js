@@ -35,30 +35,23 @@ const userSchema = new mongoose.Schema({
   languageCode: String,
   globalUserState: String,
   isBot: Boolean,
-  createdAt: { type: Date, default: Date.now }
+  lastActivity: Number,
+  createdAt: Date,
 }, { versionKey: false });
-
-// Хук для автоматической установки значения createdAt при создании нового пользователя
-userSchema.pre('save', function(next) {
-  if (!this.createdAt) {
-    this.createdAt = new Date();
-  }
-  next();
-});
-
 // Модель пользователя
 const User = mongoose.model('User', userSchema, 'users');
 
 // Схема профиля
 const profileSchema = new mongoose.Schema({
-  userId: mongoose.Schema.Types.ObjectId,
+  user_id: mongoose.Schema.Types.ObjectId,
   telegramId: Number,
   profileName: String,
   gender: String,
-  birthday: Date,
+  birthday: Number,
   age: Number,
   interests: String,
   aboutMe: String,
+  createdAt: Date,
   preferences: {
     preferredGender: String,
     ageRange: {
@@ -81,17 +74,18 @@ const profileSchema = new mongoose.Schema({
     addresstype: String,
     state: String,
     country: String,
-    latitude: Number,
+    sentGeolocation: Boolean,
+    latitude: Number, //location: { type: "Point", coordinates: [longitude, latitude] }, В дальнейшем для указания расстояния до кандидата
     longitude: Number,
   },
 }, { versionKey: false });
-
 // Модель профиля
 const Profile = mongoose.model('Profile', profileSchema, 'profiles');
 
 //Схема фотографий профиля
 const userPhotoSchema = new mongoose.Schema({
-  userId: mongoose.Schema.Types.ObjectId,
+  user_id: mongoose.Schema.Types.ObjectId,
+  createdAt: Date,
   photos: [{
     filename: String,
     path: String,
@@ -100,14 +94,18 @@ const userPhotoSchema = new mongoose.Schema({
     verifiedPhoto: { type: Boolean, default: false },
   }]
 }, { versionKey: false });
-
 //Модель фотографий профиля
 const UserPhoto = mongoose.model('UserPhoto', userPhotoSchema, 'usersPhotos');
 
-// Создание экземпляра бота
+//Схема фотографий профиля
+const matchesSchema = new mongoose.Schema({
+  user_id: mongoose.Schema.Types.ObjectId,
+}, { versionKey: false });
+//Модель фотографий профиля
+const Matches = mongoose.model('Matches', matchesSchema, 'matches');
+
 const bot = new TelegramBot(process.env.bot_token, { polling: true });
 
-// Обработка команды /start
 bot.onText(/\/start/, async (msg) => {
   console.log(msg);
   const chatId = msg.chat.id;
@@ -120,6 +118,7 @@ bot.onText(/\/start/, async (msg) => {
     languageCode: msg.from.language_code,
     isBot: msg.from.is_bot,
     globalUserState: 'new',
+    createdAt: Date.now(),
   };
 
   // Локализация текстов
@@ -136,19 +135,19 @@ bot.onText(/\/start/, async (msg) => {
 
       // Создать профиль для нового пользователя
       const profileData = {
-        userId: createdUser._id,
+        user_id: createdUser._id,
         telegramId: createdUser.telegramId,
         profileName: createdUser.firstName,
-        'preferences.ageRange.min': 18,
-        'preferences.ageRange.max': 65,
+        createdAt: Date.now(),
         // Add other profile properties as needed
       };
       const createdProfile = await Profile.create(profileData);
       console.log('Profile created for the new user:', createdProfile);
 
       const userPhotoData = {
-        userId: createdUser._id,
+        user_id: createdUser._id,
         telegramId: createdUser.telegramId,
+        createdAt: Date.now(),
       };
       const createdUserPhoto = await UserPhoto.create(userPhotoData);
       console.log('UserPhoto created for the new user:', createdUserPhoto);
@@ -185,6 +184,7 @@ bot.on('callback_query', async (callbackQuery) => {
   const data = callbackQuery.data;
   const existingUser = await User.findOne({ telegramId: userId });
   const userProfile = await Profile.findOne({ telegramId: userId });
+  await updateUserLastActivity(userId);
 
   try {
     if ('registration' === data) {
@@ -254,7 +254,7 @@ bot.on('callback_query', async (callbackQuery) => {
           const updatedProfile = await Profile.findOneAndUpdate(
             { telegramId: userId },
             { gender: gender,
-              'preferences.preferredGender': gender === 'male' ? 'male' : 'female',
+              'preferences.preferredGender': gender === 'male' ? 'female' : 'male' ,
             },
             { new: true }
           );
@@ -275,7 +275,9 @@ bot.on('callback_query', async (callbackQuery) => {
             },
           });
           currentUserState.set(userId, 'select_city');
+
         } else if (existingUser.globalUserState === 'active') {
+          bot.answerCallbackQuery(callbackQuery.id, {text: genderText, show_alert: false} );
           const updatedProfile = await Profile.findOneAndUpdate(
             { telegramId: userId },
             { 'preferences.preferredGender': gender },
@@ -283,7 +285,6 @@ bot.on('callback_query', async (callbackQuery) => {
           );
           console.log('User gender preference updated:', updatedProfile);
     
-          bot.answerCallbackQuery(callbackQuery.id, {text: genderText, show_alert: false} );
           bot.deleteMessage(chatId, messageId);
           currentUserState.set(userId, 'search_settings');
           sendUpdatedSearchSettings(chatId, updatedProfile);
@@ -315,6 +316,7 @@ bot.on('callback_query', async (callbackQuery) => {
               'location.country': selectedCity.country || selectedCity.display_name.split(', ')[selectedCity.display_name.split(', ').length - 1],
               'location.latitude': selectedCity.latitude,
               'location.longitude': selectedCity.longitude,
+              'location.sentGeolocation': false,
               'preferences.preferredLocation.locality': selectedCity.locality,
               'preferences.preferredLocation.country': selectedCity.country || selectedCity.display_name.split(', ')[selectedCity.display_name.split(', ').length - 1],
             },
@@ -339,7 +341,7 @@ bot.on('callback_query', async (callbackQuery) => {
           );
           console.log('User preferred location updated:', updatedProfile);
 
-          bot.answerCallbackQuery(callbackQuery.id, {text: `${i18n.__('preferred_location_notification')} ${updatedProfile.preferences.preferredLocation.locality}, ${updatedProfile.preferences.preferredLocation.country}`, show_alert: false});
+          bot.answerCallbackQuery(callbackQuery.id, {text: `${i18n.__('preferred_location_notification')} ${selectedCity.display_name || ''}`, show_alert: false});
           bot.deleteMessage(chatId, messageId);
 
           currentUserState.set(userId, 'search_settings');
@@ -355,7 +357,8 @@ bot.on('callback_query', async (callbackQuery) => {
         { new: true }
       );
       console.log('User state is "active":', updatedUser);
-      
+      bot.deleteMessage(chatId, messageId);
+
       bot.sendMessage(chatId, i18n.__('main_menu_message'), {
         reply_markup: {
           keyboard: i18n.__('main_menu_buttons'),
@@ -381,6 +384,8 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
     // Найти пользователя по идентификатору
     const existingUser = await User.findOne({ telegramId: userId });
     const userProfile = await Profile.findOne({ telegramId: userId });
+    if(existingUser) {i18n.setLocale(existingUser.languageCode)};
+    await updateUserLastActivity(userId);
 
     if (existingUser && existingUser.globalUserState === 'registration_process') {
       const currentState = currentUserState.get(userId);
@@ -401,6 +406,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                   'location.country': country || '',
                   'location.latitude': locationMessage.latitude,
                   'location.longitude': locationMessage.longitude,
+                  'location.sentGeolocation': true,
                 },
                 { new: true }
               );
@@ -447,15 +453,18 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
               }});
           } else if (msg.text === BUTTONS.PROFILES.en || msg.text === BUTTONS.PROFILES.ru) {
             currentUserState.set(userId, 'viewing_profiles');
-            bot.sendAnimation(chatId, 'https://dating-storage.s3.aeza.cloud/gif/9cc1a47.gif', {
-              caption: i18n.__('user_profiles_message'),
-              reply_markup: {
-                keyboard: i18n.__('user_profiles_buttons'),
-                resize_keyboard: true,
-              },
-              protect_content: true,
-            });
-          } //далее условия для 2 оставшихся пунктов меню
+            const candidateProfile = await getCandidateProfile(Profile, userProfile);
+            if (candidateProfile) {
+              await sendCandidateProfile(chatId, candidateProfile);
+            } else {
+              currentUserState.set(userId, 'main_menu');
+              await bot.sendMessage(chatId, i18n.__('candidate_not_found_message'), {
+                reply_markup: {
+                  keyboard: i18n.__('main_menu_buttons'),
+                  resize_keyboard: true
+                }});
+            }
+          } //далее условия для 2 оставшихся пунктов меню "Совпадения" и "Вы понравились"
           break;
         case 'settings_menu':
           if (msg.text === BUTTONS.MY_PROFILE.en || msg.text === BUTTONS.MY_PROFILE.ru) {
@@ -482,6 +491,30 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                 keyboard: i18n.__('main_menu_buttons'),
                 resize_keyboard: true
               }});
+          } else if (msg.text === BUTTONS.LIKE.en || msg.text === BUTTONS.LIKE.ru) {
+            const candidateProfile = await getCandidateProfile(Profile, userProfile);
+            if (candidateProfile) {
+              await sendCandidateProfile(chatId, candidateProfile);
+            } else {
+              currentUserState.set(userId, 'main_menu');
+              await bot.sendMessage(chatId, i18n.__('candidate_not_found_message'), {
+                reply_markup: {
+                  keyboard: i18n.__('main_menu_buttons'),
+                  resize_keyboard: true
+                }});
+            }
+          } else if (msg.text === BUTTONS.DISLIKE.en || msg.text === BUTTONS.DISLIKE.ru) {
+            const candidateProfile = await getCandidateProfile(Profile, userProfile);
+            if (candidateProfile) {
+              await sendCandidateProfile(chatId, candidateProfile);
+            } else {
+              currentUserState.set(userId, 'main_menu');
+              await bot.sendMessage(chatId, i18n.__('candidate_not_found_message'), {
+                reply_markup: {
+                  keyboard: i18n.__('main_menu_buttons'),
+                  resize_keyboard: true
+                }});
+            }
           }
           break;
         case 'search_settings':
@@ -713,7 +746,7 @@ function sendMyUpdatedProfile(chatId, updatedProfile) {
 }
 
 function sendSearchSettings(chatId, userProfile) {
-  bot.sendMessage(chatId, `<u>${i18n.__('search_settings_message')}</u>\n ${i18n.__('myprofile_gender_message')} ${userProfile.preferences.preferredGender}\n ${i18n.__('age_range_message')} ${userProfile.preferences.ageRange.min}-${userProfile.preferences.ageRange.max}`, {
+  bot.sendMessage(chatId, `<u>${i18n.__('search_settings_message')}</u>\n ${i18n.__('myprofile_gender_message')} ${userProfile.preferences.preferredGender}\n ${i18n.__('age_range_message')} ${userProfile.preferences.ageRange.min}-${userProfile.preferences.ageRange.max}\n ${i18n.__('location_message')} ${userProfile.preferences.preferredLocation.locality}, ${userProfile.preferences.preferredLocation.country}`, {
     reply_markup: {
       keyboard: i18n.__('search_settings_buttons'),
       resize_keyboard: true
@@ -731,6 +764,43 @@ function sendUpdatedSearchSettings(chatId, updatedProfile) {
     parse_mode: 'HTML',
   });
 }
+
+// Функция отправки профиля для кандидата
+async function sendCandidateProfile(chatId, candidateProfile) {
+  let aboutMeText = candidateProfile.aboutMe ? `<blockquote><i>${candidateProfile.aboutMe}</i></blockquote>` : '';
+
+  await bot.sendPhoto(chatId, candidateProfile.profilePhoto.photoPath, {
+    caption: `${candidateProfile.profileName}, ${candidateProfile.age}\n 🌍${candidateProfile.location.locality}, ${candidateProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${candidateProfile.gender}\n\n${aboutMeText}`,
+    reply_markup: {
+      keyboard: i18n.__('user_profiles_buttons'),
+      resize_keyboard: true },
+    parse_mode: 'HTML',
+    protect_content: true,
+  });
+}
+
+// Функция поиска профиля для кандидата
+async function getCandidateProfile(Profile, userProfile) {
+  try {
+    const candidateProfile = await Profile.findOne({
+      gender: userProfile.preferences.preferredGender,
+      age: { $gte: userProfile.preferences.ageRange.min, $lte: userProfile.preferences.ageRange.max },
+      'location.locality': userProfile.preferences.preferredLocation.locality,
+      'location.country': userProfile.preferences.preferredLocation.country,
+      // Другие условия совпадения в соответствии с предпочтениями пользователя
+      //'location': {'$near': {'$geometry': {'type': 'Point', 'coordinates': [user_longitude, user_latitude]}, '$maxDistance': max_distance}}
+    });
+    if (candidateProfile) {
+      return candidateProfile.toObject();
+    } else {
+      return null; // Если кандидат не найден
+    }
+  } catch (error) {
+    console.error('Error getting candidate profile:', error);
+    return null;
+  }
+}
+
 
 async function handleAgeRangeInput(userId, input, chatId) {
   try {
@@ -765,5 +835,18 @@ async function handleAgeRangeInput(userId, input, chatId) {
   } catch (error) {
     console.error('Error handling age range input:', error);
     bot.sendMessage(chatId, i18n.__('error_agerange_input_message'));
+  }
+}
+
+async function updateUserLastActivity(userId) {
+  try {
+    const updatedUser = await User.findOneAndUpdate(
+      { telegramId: userId },
+      { lastActivity: Date.now() },
+      { new: true }
+    );
+    console.log('User lastActivity updated:', updatedUser);
+  } catch (error) {
+    console.error('Error updating user lastActivity:', error);
   }
 }

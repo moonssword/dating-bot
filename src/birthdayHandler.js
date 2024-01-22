@@ -6,6 +6,7 @@ async function handleBirthday(bot, currentUserState, User, Profile, i18n, msg) {
   const chatId = msg.chat.id;
   const birthdayRegex = /^(\d{1,2})[./](\d{1,2})[./](\d{4})$/;
   const existingUser = await User.findOne({ telegramId: userId });
+  const userProfile = await Profile.findOne({ telegramId: userId });
   const currentState = currentUserState.get(userId);
 
   if (currentState === 'enter_birthday' && msg.text) {
@@ -22,7 +23,9 @@ async function handleBirthday(bot, currentUserState, User, Profile, i18n, msg) {
               try {
                   const updatedProfile = await Profile.findOneAndUpdate(
                       { telegramId: userId },
-                      { birthday: birthdayDate, age: age },
+                      { birthday: birthdayDate, age: age,
+                        'preferences.ageRange.min': userProfile.gender === 'male' ? Math.max(age - 10, 18) : age,
+                        'preferences.ageRange.max': userProfile.gender === 'male' ? age : age + 10, },
                       { new: true }
                   );
   
@@ -43,9 +46,6 @@ async function handleBirthday(bot, currentUserState, User, Profile, i18n, msg) {
                     setTimeout(async () => {
                       try {
                           await bot.deleteMessage(chatId, savedMessage.message_id);
-                          const genderText = i18n.language === 'ru'
-                          ? (updatedProfile.gender === 'male' ? 'мужской' : 'женский')
-                          : (updatedProfile.gender === 'male' ? 'male' : 'female');
                           await bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
                             caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${updatedProfile.gender}\n\n${aboutMeText}`,
                             reply_markup: {

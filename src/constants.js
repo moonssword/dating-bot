@@ -64,6 +64,14 @@ const BUTTONS = {
       en: '🎁 Make a gift',
       ru: '🎁 Сделать подарок'
     },
+    LIKE: {
+      en: '💚',
+      ru: '💚'
+    },
+    DISLIKE: {
+      en: '❌',
+      ru: '❌'
+    },
   };
   
   export {

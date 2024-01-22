@@ -31,29 +31,29 @@
 	"confirm_agreement_button": "✏️ Continue",
 	"main_menu_message": "Here you can see 🎯 new candidates, 💘mutual likes or change your profile settings",
 	"main_menu_buttons": [
-		["👥 Profiles", "💘 Matches"],
-		["⚙️ Settings", "💕 You Liked"]
+		["👥 Profiles","💘 Matches"],
+		["⚙️ Settings","💕 You Liked"]
 	],
 	"settings_menu_message": "👇 Select the menu section",
 	"settings_menu_buttons": [
-		["👤 My profile", "🔍 Search settings"],
-		["⬅️ Back", "?"]
+		["👤 My profile","🔍 Search settings"],
+		["⬅️ Back","?"]
 	],
 	"myprofile_gender_message": "Gender: ",
 	"myprofile_buttons": [
-		["🔠 Name", "📅 Date of birth"],
-		["📸 Photo", "✍️ About me"],
-		["⬅️ Back", "🌐 Interface language"]
+		["🔠 Name","📅 Date of birth"],
+		["📸 Photo","✍️ About me"],
+		["⬅️ Back","🌐 Interface language"]
 	],
 	"search_settings_message": "🔎 <u>Your Search settings</u>\n",
 	"search_settings_buttons": [
-		["📍 Location", "🚻 Gender"],
-		["⬅️ Back", "🔢 Age range"]
+		["📍 Location","🚻 Gender"],
+		["⬅️ Back","🔢 Age range"]
 	],
 	"user_profiles_message": "Any Profile photo with info",
 	"user_profiles_buttons": [
-		["❌", "💚"],
-		["⬅️ Back", "🎁 Make a gift"]
+		["❌","💚"],
+		["⬅️ Back","🎁 Make a gift"]
 	],
 	"back_button": [
 		["⬅️ Back"]
@@ -66,6 +66,6 @@
 	"set_age_range_message": "⌨️ Send a range of ages (for example: 18-35)",
 	"age_range_message": "Age range:",
 	"location_message": "Location:",
-	"set_prefer_location_message": "🗺️ Enter the city to search for couples"
-	
+	"set_prefer_location_message": "🗺️ Enter the city to search for couples",
+	"candidate_not_found_message": "😔🔍 Unfortunately, at the moment, we cannot provide suitable candidates according to your preferences. Please review the search parameters, such as age or region, and try again."
 }

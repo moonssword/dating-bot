@@ -112,9 +112,9 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
             return;
         } else {
             // Создание или обновление записи в коллекции usersPhotos
-            let userPhoto = await UserPhoto.findOne({ userId: existingUser._id });
+            let userPhoto = await UserPhoto.findOne({ user_id: existingUser._id });
             if (!userPhoto) {
-                userPhoto = new UserPhoto({ userId: existingUser._id, photos: [] });
+                userPhoto = new UserPhoto({ user_id: existingUser._id, photos: [] });
             }
 
             // Добавление фотографии в массив
@@ -130,7 +130,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
             // Обновление свойства profilePhoto в коллекции profiles
             const lastPhotoId = userPhoto.photos[userPhoto.photos.length - 1]._id;
             const updatedProfile = await Profile.findOneAndUpdate(
-                { userId: existingUser._id },
+                { user_id: existingUser._id },
                 { profilePhoto: {
                     photoId: lastPhotoId,
                     photoPath: filePath,
@@ -175,6 +175,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
                     try {
                         await bot.deleteMessage(chatId, verifiedMessage.message_id);
                         currentUserState.set(userId, 'my_profile');
+                        let aboutMeText = updatedProfile.aboutMe ? `<blockquote><i>${updatedProfile.aboutMe}</i></blockquote>` : '';
                         await bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
                             caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${updatedProfile.gender}\n\n${aboutMeText}`,
                             reply_markup: {
