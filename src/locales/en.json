@@ -51,7 +51,7 @@
 		["⬅️ Back","🔢 Age range"]
 	],
 	"user_profiles_message": "Any Profile photo with info",
-	"user_profiles_buttons": [
+	"viewing_profiles_buttons": [
 		["❌","💚"],
 		["⬅️ Back","🎁 Make a gift"]
 	],
@@ -67,5 +67,6 @@
 	"age_range_message": "Age range:",
 	"location_message": "Location:",
 	"set_prefer_location_message": "🗺️ Enter the city to search for couples",
-	"candidate_not_found_message": "😔🔍 Unfortunately, at the moment, we cannot provide suitable candidates according to your preferences. Please review the search parameters, such as age or region, and try again."
+	"candidate_not_found_message": "😔🔍 Unfortunately, at the moment, we cannot provide suitable candidates according to your preferences. Please review the search parameters, such as age or region, and try again.",
+	"user_liked_message": "💘 Someone liked you"
 }

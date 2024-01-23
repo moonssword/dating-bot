@@ -8,6 +8,7 @@ import { dirname } from 'path';
 import fetch from 'node-fetch';
 import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -81,6 +82,13 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
         // Сохранение фотографии в S3
         const { filePath, uniquePhotoId } = await uploadPhotoToS3(buffer);
 
+        // Сохранение фотографии локально
+        const localFilePath = `./photos/${uniquePhotoId}.jpg`; // Путь для сохранения локальной копии
+        // if (!fs.existsSync('./photos')) {
+        //     fs.mkdirSync('./photos');
+        // }
+        fs.writeFileSync(localFilePath, buffer);
+
         // Загрузка изображения
         const img = await canvas.loadImage(photoUrl);
 
@@ -114,13 +122,14 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
             // Создание или обновление записи в коллекции usersPhotos
             let userPhoto = await UserPhoto.findOne({ user_id: existingUser._id });
             if (!userPhoto) {
-                userPhoto = new UserPhoto({ user_id: existingUser._id, photos: [] });
+                userPhoto = new UserPhoto({ user_id: existingUser._id, telegramId: userId, photos: [] });
             }
 
             // Добавление фотографии в массив
             userPhoto.photos.push({
                 filename: `${uniquePhotoId}.jpg`,
                 path: filePath,
+                localPath: localFilePath,
                 size: buffer.length,
                 uploadDate: new Date(),
                 verifiedPhoto: detections.length > 0, // true если фотография прошла проверку
@@ -132,8 +141,9 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
             const updatedProfile = await Profile.findOneAndUpdate(
                 { user_id: existingUser._id },
                 { profilePhoto: {
-                    photoId: lastPhotoId,
+                    photo_id: lastPhotoId,
                     photoPath: filePath,
+                    photoLocalPath: localFilePath,
                     uploadDate: new Date(),
                     },
                 },

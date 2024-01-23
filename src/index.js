@@ -8,6 +8,7 @@ import { handlePhoto } from './checkPhotoHandler.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { BUTTONS } from './constants.js';
+import sharp from 'sharp';
 
 // Подключение к базе данных MongoDB
 mongoose.connect('mongodb://localhost:27017/userdata')
@@ -35,15 +36,18 @@ const userSchema = new mongoose.Schema({
   languageCode: String,
   globalUserState: String,
   isBot: Boolean,
-  lastActivity: Number,
   createdAt: Date,
 }, { versionKey: false });
 // Модель пользователя
+userSchema.index({ telegramId: 1 }, { unique: true });
 const User = mongoose.model('User', userSchema, 'users');
 
 // Схема профиля
 const profileSchema = new mongoose.Schema({
-  user_id: mongoose.Schema.Types.ObjectId,
+  user_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
   telegramId: Number,
   profileName: String,
   gender: String,
@@ -52,6 +56,7 @@ const profileSchema = new mongoose.Schema({
   interests: String,
   aboutMe: String,
   createdAt: Date,
+  lastActivity: Number,
   preferences: {
     preferredGender: String,
     ageRange: {
@@ -64,8 +69,10 @@ const profileSchema = new mongoose.Schema({
     },
   },
   profilePhoto: {
-    photoId: mongoose.Schema.Types.ObjectId,
+    photo_id: mongoose.Schema.Types.ObjectId,
+    telegramId: Number,
     photoPath: String,
+    photoLocalPath: String,
     uploadDate: Date,
   },
   location: {
@@ -78,8 +85,17 @@ const profileSchema = new mongoose.Schema({
     latitude: Number, //location: { type: "Point", coordinates: [longitude, latitude] }, В дальнейшем для указания расстояния до кандидата
     longitude: Number,
   },
+  likedProfiles: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Profile',
+  }],
+  dislikedProfiles: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Profile',
+  }],
 }, { versionKey: false });
 // Модель профиля
+profileSchema.index({ telegramId: 1 }, { unique: true });
 const Profile = mongoose.model('Profile', profileSchema, 'profiles');
 
 //Схема фотографий профиля
@@ -89,6 +105,7 @@ const userPhotoSchema = new mongoose.Schema({
   photos: [{
     filename: String,
     path: String,
+    localPath: String,
     size: Number,
     uploadDate: { type: Date, default: Date.now },
     verifiedPhoto: { type: Boolean, default: false },
@@ -97,11 +114,11 @@ const userPhotoSchema = new mongoose.Schema({
 //Модель фотографий профиля
 const UserPhoto = mongoose.model('UserPhoto', userPhotoSchema, 'usersPhotos');
 
-//Схема фотографий профиля
+//Схема совпадений
 const matchesSchema = new mongoose.Schema({
   user_id: mongoose.Schema.Types.ObjectId,
 }, { versionKey: false });
-//Модель фотографий профиля
+//Модель совпадений
 const Matches = mongoose.model('Matches', matchesSchema, 'matches');
 
 const bot = new TelegramBot(process.env.bot_token, { polling: true });
@@ -492,10 +509,34 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                 resize_keyboard: true
               }});
           } else if (msg.text === BUTTONS.LIKE.en || msg.text === BUTTONS.LIKE.ru) {
+
             const candidateProfile = await getCandidateProfile(Profile, userProfile);
             if (candidateProfile) {
-              await sendCandidateProfile(chatId, candidateProfile);
+
+              //Сохранить информацию о лайке
+              const likedProfileId = candidateProfile._id;
+              const likedUserId = candidateProfile.telegramId;
+              userProfile.likedProfiles.push(likedProfileId);
+              await userProfile.save();
+
+              //Отправить уведомление о лайке
+              await sendLikeNotificationBlurPhoto(likedUserId, userProfile);
+
+              //Проверка остальных кандидатов
+              const nextCandidateProfile = await getCandidateProfile(Profile, userProfile);
+              if (nextCandidateProfile) {
+                await sendCandidateProfile(chatId, nextCandidateProfile);
+              } else {
+                currentUserState.set(userId, 'main_menu');
+                await bot.sendMessage(chatId, i18n.__('candidate_not_found_message'), {
+                  reply_markup: {
+                    keyboard: i18n.__('main_menu_buttons'),
+                    resize_keyboard: true
+                  }
+                });
+              }
             } else {
+              //Отправка сообщения что кандидатов нет и выход в главное меню
               currentUserState.set(userId, 'main_menu');
               await bot.sendMessage(chatId, i18n.__('candidate_not_found_message'), {
                 reply_markup: {
@@ -504,9 +545,24 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                 }});
             }
           } else if (msg.text === BUTTONS.DISLIKE.en || msg.text === BUTTONS.DISLIKE.ru) {
+
             const candidateProfile = await getCandidateProfile(Profile, userProfile);
             if (candidateProfile) {
-              await sendCandidateProfile(chatId, candidateProfile);
+              const dislikedProfileId = candidateProfile._id;
+              userProfile.dislikedProfiles.push(dislikedProfileId);
+              await userProfile.save();
+              const nextCandidateProfile = await getCandidateProfile(Profile, userProfile);
+              if (nextCandidateProfile) {
+                await sendCandidateProfile(chatId, nextCandidateProfile);
+              } else {
+                currentUserState.set(userId, 'main_menu');
+                await bot.sendMessage(chatId, i18n.__('candidate_not_found_message'), {
+                  reply_markup: {
+                    keyboard: i18n.__('main_menu_buttons'),
+                    resize_keyboard: true
+                  }
+                });
+              }
             } else {
               currentUserState.set(userId, 'main_menu');
               await bot.sendMessage(chatId, i18n.__('candidate_not_found_message'), {
@@ -770,13 +826,30 @@ async function sendCandidateProfile(chatId, candidateProfile) {
   let aboutMeText = candidateProfile.aboutMe ? `<blockquote><i>${candidateProfile.aboutMe}</i></blockquote>` : '';
 
   await bot.sendPhoto(chatId, candidateProfile.profilePhoto.photoPath, {
-    caption: `${candidateProfile.profileName}, ${candidateProfile.age}\n 🌍${candidateProfile.location.locality}, ${candidateProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${candidateProfile.gender}\n\n${aboutMeText}`,
+    caption: `${candidateProfile.profileName}, ${candidateProfile.age}\n 🌍${candidateProfile.location.locality}, ${candidateProfile.location.country}\n\n\n${aboutMeText}`,
     reply_markup: {
-      keyboard: i18n.__('user_profiles_buttons'),
+      keyboard: i18n.__('viewing_profiles_buttons'),
       resize_keyboard: true },
     parse_mode: 'HTML',
     protect_content: true,
   });
+}
+
+// Функция для отправки уведомления о лайке
+async function sendLikeNotificationBlurPhoto(likedUserId, userProfile) {
+  try {
+    bot.sendPhoto(likedUserId, userProfile.profilePhoto.photoPath, {
+      caption: `${i18n.__('user_liked_message')}`,
+      // reply_markup: {
+      //   keyboard: i18n.__('myprofile_buttons'),
+      //   resize_keyboard: true
+      // },
+      parse_mode: 'HTML',
+      protect_content: true,
+    });
+  } catch (error) {
+    console.error('Error sending like notification:', error);
+  }
 }
 
 // Функция поиска профиля для кандидата
@@ -787,10 +860,12 @@ async function getCandidateProfile(Profile, userProfile) {
       age: { $gte: userProfile.preferences.ageRange.min, $lte: userProfile.preferences.ageRange.max },
       'location.locality': userProfile.preferences.preferredLocation.locality,
       'location.country': userProfile.preferences.preferredLocation.country,
+      _id: { $nin: [...userProfile.likedProfiles, ...userProfile.dislikedProfiles] },
       // Другие условия совпадения в соответствии с предпочтениями пользователя
       //'location': {'$near': {'$geometry': {'type': 'Point', 'coordinates': [user_longitude, user_latitude]}, '$maxDistance': max_distance}}
     });
-    if (candidateProfile) {
+    const isProfileLiked = userProfile.likedProfiles.includes(candidateProfile._id);
+    if (candidateProfile && !isProfileLiked) {
       return candidateProfile.toObject();
     } else {
       return null; // Если кандидат не найден
@@ -840,12 +915,12 @@ async function handleAgeRangeInput(userId, input, chatId) {
 
 async function updateUserLastActivity(userId) {
   try {
-    const updatedUser = await User.findOneAndUpdate(
+    const updatedProfile = await Profile.findOneAndUpdate(
       { telegramId: userId },
       { lastActivity: Date.now() },
       { new: true }
     );
-    console.log('User lastActivity updated:', updatedUser);
+    console.log('User lastActivity updated:', updatedProfile);
   } catch (error) {
     console.error('Error updating user lastActivity:', error);
   }
