@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { BUTTONS } from './constants.js';
 import sharp from 'sharp';
+import moment from 'moment';
 
 // Подключение к базе данных MongoDB
 mongoose.connect('mongodb://localhost:27017/userdata')
@@ -826,7 +827,7 @@ async function sendCandidateProfile(chatId, candidateProfile) {
   let aboutMeText = candidateProfile.aboutMe ? `<blockquote><i>${candidateProfile.aboutMe}</i></blockquote>` : '';
 
   await bot.sendPhoto(chatId, candidateProfile.profilePhoto.photoPath, {
-    caption: `${candidateProfile.profileName}, ${candidateProfile.age}\n 🌍${candidateProfile.location.locality}, ${candidateProfile.location.country}\n\n\n${aboutMeText}`,
+    caption: `${candidateProfile.profileName}, ${candidateProfile.age}\n🌍${candidateProfile.location.locality}, ${candidateProfile.location.country}\n${getLastActivityStatus(candidateProfile.lastActivity)}\n\n\n${aboutMeText}`,
     reply_markup: {
       keyboard: i18n.__('viewing_profiles_buttons'),
       resize_keyboard: true },
@@ -945,5 +946,22 @@ async function updateUserLastActivity(userId) {
     console.log('User lastActivity updated:', updatedProfile);
   } catch (error) {
     console.error('Error updating user lastActivity:', error);
+  }
+}
+
+function getLastActivityStatus(lastActivity) {
+
+  const now = moment();
+  const lastActivityMoment = moment(lastActivity);
+  const duration = moment.duration(now.diff(lastActivityMoment));
+
+  if (duration.asMinutes() < 1) {
+    return i18n.__('online_message');
+  } else if (duration.asWeeks() < 1) {
+    return i18n.__('recently_message');
+  } else if (duration.asMonths() < 1) {
+    return i18n.__('more_than_week_message');
+  } else {
+    return i18n.__('more_than_month_message');
   }
 }
