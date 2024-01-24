@@ -837,8 +837,26 @@ async function sendCandidateProfile(chatId, candidateProfile) {
 
 // Функция для отправки уведомления о лайке
 async function sendLikeNotificationBlurPhoto(likedUserId, userProfile) {
+
+  const blurredPhotoBuffer = await blurImage(userProfile.profilePhoto.photoLocalPath);
+
+  // Функция для размытия изображения
+  async function blurImage(photoPath) {
+    try {
+      const imageBuffer = await sharp(photoPath)
+        .resize(300) // Размер, на который вы хотите изменить изображение
+        .blur(15) // Значение размытия
+        .toBuffer();
+
+      return imageBuffer;
+    } catch (error) {
+      console.error('Error blurring image:', error);
+      return null;
+    }
+  }
   try {
-    bot.sendPhoto(likedUserId, userProfile.profilePhoto.photoPath, {
+    //Отправить inline-кнопку (возможность просматривать лайки за $)
+    bot.sendPhoto(likedUserId, blurredPhotoBuffer, {
       caption: `${i18n.__('user_liked_message')}`,
       // reply_markup: {
       //   keyboard: i18n.__('myprofile_buttons'),
@@ -852,7 +870,7 @@ async function sendLikeNotificationBlurPhoto(likedUserId, userProfile) {
   }
 }
 
-// Функция поиска профиля для кандидата
+// Функция поиска профиля кандидата
 async function getCandidateProfile(Profile, userProfile) {
   try {
     const candidateProfile = await Profile.findOne({
@@ -863,7 +881,11 @@ async function getCandidateProfile(Profile, userProfile) {
       _id: { $nin: [...userProfile.likedProfiles, ...userProfile.dislikedProfiles] },
       // Другие условия совпадения в соответствии с предпочтениями пользователя
       //'location': {'$near': {'$geometry': {'type': 'Point', 'coordinates': [user_longitude, user_latitude]}, '$maxDistance': max_distance}}
+      'preferences.preferredGender': userProfile.gender,
+      'preferences.ageRange.min': { $lte: userProfile.age },
+      'preferences.ageRange.max': { $gte: userProfile.age },
     });
+
     const isProfileLiked = userProfile.likedProfiles.includes(candidateProfile._id);
     if (candidateProfile && !isProfileLiked) {
       return candidateProfile.toObject();
