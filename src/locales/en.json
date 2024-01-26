@@ -58,6 +58,10 @@
 	"back_button": [
 		["⬅️ Back"]
 	],
+	"viewing_matches_buttons": [
+		["⏪","⛔"],
+		["⬅️ Back","ℹ️"]
+	],
 	"enter_profilename_message": "What is your name?",
 	"enter_aboutme_message": "✍️ Write a few lines about yourself",
 	"wrong_choise_message": "👆 Select one of the options or click ⬅️ back",
@@ -72,5 +76,8 @@
 	"online_message": "🟢 online",
 	"recently_message": "⏱️ last seen recently",
 	"more_than_week_message": "⏱️ More than a week ago",
-	"more_than_month_message": "⏱️ More than a month ago"
+	"more_than_month_message": "⏱️ More than a month ago",
+	"match_found_message": "💟 MUTUAL SYMPATHY 💟",
+	"write_liked_user_message": "💌 Write message",
+	"continue_viewing_message": "⏩ Continue viewing"
 }
