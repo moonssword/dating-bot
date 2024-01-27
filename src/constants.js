@@ -4,10 +4,6 @@ const BUTTONS = {
     en: '⏩ Продолжить просмотр',
     ru: '⏩ Continue viewing'
   },
-  WRITE_MESSAGE_BUTTON: {
-    en: '💌 Write message',
-    ru: '💌 Написать сообщение'
-  },
   INFO_MATCH_BUTTON: {
     en: 'ℹ️',
     ru: 'ℹ️'

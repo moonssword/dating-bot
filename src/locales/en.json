@@ -62,6 +62,9 @@
 		["⏪","⛔"],
 		["⬅️ Back","ℹ️"]
 	],
+	"viewing_match_buttons": [
+		["⏩ Continue viewing"]
+	],
 	"enter_profilename_message": "What is your name?",
 	"enter_aboutme_message": "✍️ Write a few lines about yourself",
 	"wrong_choise_message": "👆 Select one of the options or click ⬅️ back",
@@ -77,7 +80,10 @@
 	"recently_message": "⏱️ last seen recently",
 	"more_than_week_message": "⏱️ More than a week ago",
 	"more_than_month_message": "⏱️ More than a month ago",
-	"match_found_message": "💟 MUTUAL SYMPATHY 💟",
-	"write_liked_user_message": "💌 Write message",
+	"match_found_message": "💟 <b>IT'S A MATCH</b> 💟",
+	"candidate_quote_message": "<blockquote><i>🥰 I like you!</i></blockquote>",
+	"write_liked_user_message": "👇 Open a telegram chat with",
+	"write_liked_user_inline_keyboard": "💌 Write message",
+	"write_liked_candidate_inline_keyboard": "💌 Open chat with",
 	"continue_viewing_message": "⏩ Continue viewing"
 }

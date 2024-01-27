@@ -420,6 +420,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
   const locationMessage = msg.location;
   const cityName = msg.text;
 
+  console.log('User current state:', currentUserState.get(userId));
   // Получаем текущее состояние пользователя
   try {
     // Найти пользователя по идентификатору
@@ -427,6 +428,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
     const userProfile = await Profile.findOne({ telegramId: userId });
     if (existingUser) {i18n.setLocale(existingUser.languageCode)};
     await updateUserLastActivity(userId);
+    let likedCandidateProfile;
 
     if (existingUser && existingUser.globalUserState === 'registration_process') {
       const currentState = currentUserState.get(userId);
@@ -507,8 +509,22 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             }
           }  else if (msg.text === BUTTONS.MATCHES.en || msg.text === BUTTONS.MATCHES.ru) {
             currentUserState.set(userId, 'viewing_matches');
-            //Отправить совпадения
+            bot.sendMessage(chatId, 'Просмотр совпадений', {
+              reply_markup: {
+                keyboard: i18n.__('viewing_matches_buttons'),
+                resize_keyboard: true
+              }});
             }//далее условия для "Вы понравились"
+          break;
+        case 'viewing_matches':
+          if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+            currentUserState.set(userId, 'main_menu');
+            bot.sendMessage(chatId, i18n.__('main_menu_message'), {
+              reply_markup: {
+                keyboard: i18n.__('main_menu_buttons'),
+                resize_keyboard: true
+              }});
+          }
           break;
         case 'settings_menu':
           if (msg.text === BUTTONS.MY_PROFILE.en || msg.text === BUTTONS.MY_PROFILE.ru) {
@@ -553,10 +569,12 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
               });
                 if (likedCandidateProfile) {
                   //Отправить уведомление о взаимной симпатии
-                  await sendMatchNotification(likedCandidateProfile, userProfile);
+                  currentUserState.set(userId, 'viewing_match');
+                  console.log('candidate profile:', likedCandidateProfile);
+                  await sendMatchNotification(likedCandidateProfile, userProfile, i18n, User, existingUser);
                 } else {
                   //Отправить уведомление о лайке
-                  await sendLikeNotificationBlurPhoto(likedCandidateProfileTelegramId, userProfile);
+                  await sendLikeNotificationBlurPhoto(likedCandidateProfileTelegramId, userProfile, i18n, User, existingUser);
 
                   //Проверка остальных кандидатов
                   const nextCandidateProfile = await getCandidateProfile(Profile, userProfile);
@@ -611,7 +629,20 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           }
           break;
         case 'viewing_match':
-
+          if (msg.text === BUTTONS.CONTINUE_VIEWING_BUTTON.en || msg.text === BUTTONS.CONTINUE_VIEWING_BUTTON.ru) { //логика продолжения просмотра профилей
+            currentUserState.set(userId, 'viewing_profiles');
+            const candidateProfile = await getCandidateProfile(Profile, userProfile);
+            if (candidateProfile) {
+              await sendCandidateProfile(chatId, candidateProfile);
+            } else {
+              currentUserState.set(userId, 'main_menu');
+              await bot.sendMessage(chatId, i18n.__('candidate_not_found_message'), {
+                reply_markup: {
+                  keyboard: i18n.__('main_menu_buttons'),
+                  resize_keyboard: true
+                }});
+            }
+          }
           break;
         case 'search_settings':
           //Настройка поиска анкет
@@ -876,7 +907,8 @@ async function sendCandidateProfile(chatId, candidateProfile) {
 }
 
 // Функция для отправки уведомления о Взаимном лайке
-async function sendMatchNotification(likedCandidateProfile, userProfile) {
+async function sendMatchNotification(likedCandidateProfile, userProfile, i18n, User, existingUser) {
+  
   try {
     userProfile.matches.push(likedCandidateProfile._id);
     likedCandidateProfile.matches.push(userProfile._id);
@@ -885,30 +917,51 @@ async function sendMatchNotification(likedCandidateProfile, userProfile) {
     await likedCandidateProfile.save();
 
     // Отправить уведомление об успешном совпадении пользователю
-    await bot.sendMessage(userProfile.telegramId, i18n.__('match_found_message'), {
+    await bot.sendPhoto(userProfile.telegramId, likedCandidateProfile.profilePhoto.photoPath, {
+      caption: `${i18n.__('match_found_message')}\n\n${likedCandidateProfile.profileName}: ${i18n.__('candidate_quote_message')}`,
+      reply_markup: {
+        keyboard: i18n.__('viewing_match_buttons'),
+        resize_keyboard: true
+      },
+      parse_mode: 'HTML',
+      protect_content: true,
+    });
+
+    await bot.sendMessage(userProfile.telegramId, `${i18n.__('write_liked_user_message')} <b>${likedCandidateProfile.profileName}</b>`, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: `${i18n.__('write_liked_user_message')} ${likedCandidateProfile.profileName}`, url: `https://t.me/${likedCandidateProfile.userName}` }],
-          [{ text: `${i18n.__('continue_viewing_message')}`, callback_data: 'continue_viewing' }]
+          [{ text: i18n.__('write_liked_user_inline_keyboard'), url: `https://t.me/${likedCandidateProfile.userName}` }]
         ]
-      }
+      },
+      parse_mode: 'HTML',
     });
 
     // Отправить уведомление об успешном совпадении кандидату
-    await bot.sendMessage(likedCandidateProfile.telegramId, i18n.__('match_found_message'), {
+    const likedCandidateUser = await User.findOne({ telegramId: likedCandidateProfile.telegramId });
+    const likedCandidateLanguageCode = likedCandidateUser.languageCode;
+    i18n.setLocale(likedCandidateLanguageCode);
+    await bot.sendPhoto(likedCandidateProfile.telegramId, userProfile.profilePhoto.photoPath, {
+      caption: `${i18n.__('match_found_message')}\n\n${userProfile.profileName}: ${i18n.__('candidate_quote_message')}`,
       reply_markup: {
         inline_keyboard: [
-          [{ text: `${i18n.__('write_liked_user_message')} ${userProfile.profileName}`, url: `https://t.me/${userProfile.userName}` }]
+          [{ text: `${i18n.__('write_liked_candidate_inline_keyboard')} ${userProfile.profileName}`, url: `https://t.me/${userProfile.userName}` }]
         ]
-      }
+      },
+      parse_mode: 'HTML',
+      protect_content: true,
     });
+    i18n.setLocale(existingUser.languageCode);
+
   } catch (error) {
     console.error('Error sending match notification:', error);
   }
 }
 
 // Функция для отправки уведомления о лайке
-async function sendLikeNotificationBlurPhoto(likedCandidateProfileTelegramId, userProfile) {
+async function sendLikeNotificationBlurPhoto(likedCandidateProfileTelegramId, userProfile, i18n, User, existingUser) {
+
+  const likedCandidateUser = await User.findOne({ telegramId: likedCandidateProfileTelegramId });
+  const likedCandidateLanguageCode = likedCandidateUser.languageCode;
 
   const blurredPhotoBuffer = await blurImage(userProfile.profilePhoto.photoLocalPath);
 
@@ -927,46 +980,14 @@ async function sendLikeNotificationBlurPhoto(likedCandidateProfileTelegramId, us
     }
   }
   try {
-    // Проверить, если пользователь, которому отправлен лайк, также лайкнул текущего пользователя
-    const likedCandidateProfile = await Profile.findOne({
-      telegramId: likedCandidateProfileTelegramId,
-      likedProfiles: userProfile._id,
+    i18n.setLocale(likedCandidateLanguageCode);
+    bot.sendPhoto(likedCandidateProfileTelegramId, blurredPhotoBuffer, {
+      caption: `${i18n.__('user_liked_message')}`,
+      //Отправить inline-кнопку (возможность просматривать лайки, реализация позже)
+      parse_mode: 'HTML',
+      protect_content: true,
     });
-    
-      if (likedCandidateProfile) {
-        // Оба пользователей лайкнули друг друга - это совпадение!
-        userProfile.matches.push(likedCandidateProfile._id);
-        likedCandidateProfile.matches.push(userProfile._id);
-        await userProfile.save();
-        await likedCandidateProfile.save();
-        
-        // Отправить уведомление об успешном совпадении
-        bot.sendMessage(userProfile.telegramId, i18n.__('match_found_message'), {
-          reply_markup: {
-            inline_keyboard: [
-              [  { text: `${i18n.__('write_liked_user_message')} ${likedCandidateProfile.profileName}`, url: `https://t.me/${likedCandidateProfile.userName}` } ],
-              [  { text: `${i18n.__('continue_viewing_message')}`, callback_data: 'continue_viewing' }  ]
-            ]
-          }
-        });
-        
-        bot.sendMessage(likedCandidateProfileTelegramId, i18n.__('match_found_message'), {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: `${i18n.__('write_liked_user_message')} ${userProfile.profileName}`, url: `https://t.me/${userProfile.userName}` },
-              ]
-            ]
-          }
-        });
-      } else {
-        bot.sendPhoto(likedCandidateProfileTelegramId, blurredPhotoBuffer, {
-          caption: `${i18n.__('user_liked_message')}`,
-          //Отправить inline-кнопку (возможность просматривать лайки, реализация позже)
-          parse_mode: 'HTML',
-          protect_content: true,
-        });
-      }
+    i18n.setLocale(existingUser.languageCode);
   } catch (error) {
     console.error('Error sending like notification:', error);
   }
