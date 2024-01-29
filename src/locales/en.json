@@ -37,17 +37,17 @@
 	"settings_menu_message": "👇 Select the menu section",
 	"settings_menu_buttons": [
 		["👤 My profile","🔍 Search settings"],
-		["⬅️ Back","?"]
+		["⬅️ Back","🌐 Interface language"]
 	],
 	"myprofile_gender_message": "Gender: ",
 	"myprofile_buttons": [
 		["🔠 Name","📅 Date of birth"],
 		["📸 Photo","✍️ About me"],
-		["⬅️ Back","🌐 Interface language"]
+		["⬅️ Back"]
 	],
 	"search_settings_message": "🔎 <u>Your Search settings</u>\n",
 	"search_settings_buttons": [
-		["📍 Location","🚻 Gender"],
+		["🗺️ Location","🚻 Gender"],
 		["⬅️ Back","🔢 Age range"]
 	],
 	"user_profiles_message": "Any Profile photo with info",

@@ -11,6 +11,7 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
+    "@vladmandic/face-api": "^1.7.13",
     "aws-sdk": "^2.1539.0",
     "axios": "^0.24.0",
     "canvas": "^2.11.2",

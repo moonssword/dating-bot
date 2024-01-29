@@ -1,5 +1,6 @@
 // photoHandler.js
 import i18n from 'i18n';
+//import faceapi from '@vladmandic/face-api'; //For deploy
 import faceapi from 'face-api.js';
 import canvas from 'canvas';
 import 'dotenv/config';
