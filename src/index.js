@@ -360,24 +360,53 @@ bot.on('callback_query', async (callbackQuery) => {
   
           bot.sendMessage(chatId, i18n.__('enter_birthday_message'), { reply_markup: { remove_keyboard: true } }) // Текст ввода даты рождения
           currentUserState.set(userId, 'enter_birthday');
-        } else if (existingUser.globalUserState === 'active') {
 
-            const updatedProfile = await Profile.findOneAndUpdate(
+          //Обработка отправки названия города из меню Настройки поиска
+        } else if (currentUserState.get(userId) === 'set_prefer_location' && existingUser.globalUserState === 'active') {
+
+              const updatedProfile = await Profile.findOneAndUpdate(
+              { telegramId: userId },
+              {
+                'preferences.preferredLocation.locality': selectedCity.locality,
+                'preferences.preferredLocation.country': selectedCity.country || selectedCity.display_name.split(', ')[selectedCity.display_name.split(', ').length - 1],
+              },
+              { new: true }
+            );
+            console.log('User preferred location updated:', updatedProfile);
+
+            bot.answerCallbackQuery(callbackQuery.id, {text: `${i18n.__('preferred_location_notification')} ${selectedCity.display_name || ''}`, show_alert: false});
+            bot.deleteMessage(chatId, messageId);
+
+            currentUserState.set(userId, 'search_settings');
+            sendUpdatedSearchSettings(chatId, updatedProfile);
+
+            //Обработка отправки названия города из меню Мое местоположение
+        } else if (currentUserState.get(userId) === 'select_city' && existingUser.globalUserState === 'active') {
+
+          const updatedProfile = await Profile.findOneAndUpdate(
             { telegramId: userId },
             {
+              'location.locality': selectedCity.locality || '',
+              'location.display_name': selectedCity.display_name || '',
+              'location.addresstype': selectedCity.addresstype || '',
+              'location.state': selectedCity.state || '',
+              'location.country': selectedCity.country || selectedCity.display_name.split(', ')[selectedCity.display_name.split(', ').length - 1],
+              'location.latitude': selectedCity.latitude,
+              'location.longitude': selectedCity.longitude,
+              'location.sentGeolocation': false,
               'preferences.preferredLocation.locality': selectedCity.locality,
               'preferences.preferredLocation.country': selectedCity.country || selectedCity.display_name.split(', ')[selectedCity.display_name.split(', ').length - 1],
             },
             { new: true }
           );
-          console.log('User preferred location updated:', updatedProfile);
+          console.log('User location updated:', updatedProfile);
 
-          bot.answerCallbackQuery(callbackQuery.id, {text: `${i18n.__('preferred_location_notification')} ${selectedCity.display_name || ''}`, show_alert: false});
+          bot.answerCallbackQuery(callbackQuery.id, {text: `${i18n.__('location_notification')} ${selectedCity.display_name}`, show_alert: false});
           bot.deleteMessage(chatId, messageId);
 
           currentUserState.set(userId, 'search_settings');
-          sendUpdatedSearchSettings(chatId, updatedProfile);
-        }
+          await sendMyUpdatedProfile(chatId, updatedProfile);
+      }
       }
     } else if ('confirm_agreement_button' === data) {
       // Обработка нажатия кнопки "Продолжить" с соглашением
@@ -419,7 +448,6 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
     const userProfile = await Profile.findOne({ telegramId: userId });
     if (existingUser) {i18n.setLocale(existingUser.languageCode)};
     await updateUserLastActivity(userId);
-    let likedCandidateProfile;
 
     if (existingUser && existingUser.globalUserState === 'registration_process') {
       const currentState = currentUserState.get(userId);
@@ -520,10 +548,10 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
         case 'settings_menu':
           if (msg.text === BUTTONS.MY_PROFILE.en || msg.text === BUTTONS.MY_PROFILE.ru) {
             currentUserState.set(userId, 'my_profile');
-            sendMyProfile(chatId, userProfile);
+            await sendMyProfile(chatId, userProfile);
           } else if (msg.text === BUTTONS.SEARCH_SETTINGS.en || msg.text === BUTTONS.SEARCH_SETTINGS.ru) {
             currentUserState.set(userId, 'search_settings');
-            sendSearchSettings(chatId, userProfile);
+            await sendSearchSettings(chatId, userProfile);
           } else if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
             currentUserState.set(userId, 'main_menu');
             bot.sendMessage(chatId, i18n.__('main_menu_message'), {
@@ -722,6 +750,16 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                 keyboard: i18n.__('back_button'),
                 resize_keyboard: true
               }});
+          } else if (msg.text === BUTTONS.MY_LOCATION.en || msg.text === BUTTONS.MY_LOCATION.ru) {
+            currentUserState.set(userId, 'select_city');
+            bot.sendMessage(chatId, i18n.__('request_location_or_city'), {
+              reply_markup: {
+                keyboard: [
+                  [ `${i18n.__('back_button')}`, { text: i18n.__('send_location'), request_location: true } ],
+                ],
+                resize_keyboard: true,
+              },
+            });
           }
           break;
         case 'enter_profilename':
@@ -790,6 +828,51 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             sendMyProfile(chatId, userProfile);
           } else {
             await handlePhoto(bot, currentUserState, i18n, msg, User, UserPhoto, Profile);
+          }
+          break;
+        case 'select_city':   // Обработка полученной локации или названия города
+        if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+          currentUserState.set(userId, 'my_profile');
+          await sendMyProfile(chatId, userProfile);
+        } else if (locationMessage) {
+            // Если получена локация, обработать её
+            try {
+              const { locality, display_name, addresstype, state, country } = await getFromLocation(userId, locationMessage, bot);
+              // Обновление профиля пользователя с полученным местоположением
+              const updatedProfile = await Profile.findOneAndUpdate(
+                { telegramId: userId },
+                {
+                  'location.locality': locality || '',
+                  'location.display_name': display_name || '',
+                  'location.addresstype': addresstype || '',
+                  'location.state': state || '',
+                  'location.country': country || '',
+                  'location.latitude': locationMessage.latitude,
+                  'location.longitude': locationMessage.longitude,
+                  'location.sentGeolocation': true,
+                },
+                { new: true }
+              );
+              console.log('User location updated:', updatedProfile);
+
+              const savedMessage = await bot.sendMessage(chatId, `${i18n.__('location_notification')} ${locality}, ${country}`, { reply_markup: { remove_keyboard: true } });
+              setTimeout(async () => {
+                try {
+                  await bot.deleteMessage(chatId, savedMessage.message_id);
+                  await sendMyUpdatedProfile(chatId, updatedProfile);
+                } catch (error) {
+                  console.error('Error:', error);
+                }
+              }, 3000);
+
+              currentUserState.set(userId, 'my_profile');
+
+            } catch (err) {
+              console.error('Error updating user location:', err);
+            }
+          } else if(cityName) {
+            // Если получено сообщение с текстом (название города), обработать его
+            await getFromCityName(cityName, bot, chatId, locationDataMap);
           }
           break;
         case 'select_prefer_gender':

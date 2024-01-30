@@ -1,5 +1,9 @@
 // constants.js
 const BUTTONS = {
+  MY_LOCATION: {
+    en: '🏠 My location',
+    ru: '🏠 Мое местоположение'
+  },
   CONTINUE_VIEWING_BUTTON: {
     en: '⏩ Продолжить просмотр',
     ru: '⏩ Continue viewing'
