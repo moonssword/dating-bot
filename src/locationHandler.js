@@ -92,7 +92,34 @@ export async function getFromCityName(cityName, bot, chatId, locationDataMap) {
   }
 }
 
+// Функция для определения и указания расстояния в профиле
+export async function calculateAndReturnDistance(userProfile, candidateProfile) {
+  const userLocation = userProfile.location;
+  const candidateLocation = candidateProfile.location;
+
+  if (userLocation.sentGeolocation && candidateLocation.sentGeolocation) {
+    const distance = calculateDistance(userLocation.latitude, userLocation.longitude, candidateLocation.latitude, candidateLocation.longitude);
+    return distance < 1 ? distance.toFixed(1) : Math.round(distance);
+  } else {
+    return null;
+  }
+}
+    // Функция для расчета расстояния между двумя точками в километрах
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Радиус Земли в километрах
+      const dLat = (lat2 - lat1) * (Math.PI / 180);
+      const dLon = (lon2 - lon1) * (Math.PI / 180);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distance = R * c; // Расстояние в километрах
+      return distance;
+    }
+
+
 export default {
   getFromLocation,
   getFromCityName,
+  calculateAndReturnDistance,
 };
