@@ -11,6 +11,9 @@ import { BUTTONS } from './constants.js';
 import sharp from 'sharp';
 import moment from 'moment';
 
+process.env.NTBA_FIX_319 = 1;
+process.env.NTBA_FIX_350 = 0;
+
 // Подключение к базе данных MongoDB
 mongoose.connect('mongodb://localhost:27017/userdata')
 .then(() => console.log('Connected to MongoDB'))
@@ -18,6 +21,8 @@ mongoose.connect('mongodb://localhost:27017/userdata')
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const locationDataMap = new Map(); // Создаем Map для временного хранения данных о местоположении
+const currentUserState = new Map(); // Переменная состояния регистрации(state)
 
 i18n.configure({
   locales: ['en', 'ru'], // Доступные языки
@@ -25,8 +30,6 @@ i18n.configure({
 //  defaultLocale: 'ru', // Язык по умолчанию
   objectNotation: true, // Использование объектной нотации для строк
 });
-
-const locationDataMap = new Map(); // Создаем Map для временного хранения данных о местоположении
 
 // Схема пользователя
 const userSchema = new mongoose.Schema({
@@ -99,6 +102,7 @@ const profileSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Profile',
   }],
+  viewingMatchIndex: Number,
 }, { versionKey: false });
 // Модель профиля
 profileSchema.index({ telegramId: 1 }, { unique: true });
@@ -201,8 +205,6 @@ bot.onText(/\/start/, async (msg) => {
     console.error('Error processing /start command:', err);
   }
 });
-
-const currentUserState = new Map(); // Переменная состояния регистрации(state)
 
 bot.on('callback_query', async (callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
@@ -421,8 +423,20 @@ bot.on('callback_query', async (callbackQuery) => {
           resize_keyboard: true
         }}
       )
-    } else if ('Название колбэк' === data) {
-      //Обработка других кнопок
+    } else if ('previous_button' === data || 'next_button' === data) {
+      const matchesProfiles = await getMatchesProfiles(userProfile);
+      let currentMatchIndex = userProfile.viewingMatchIndex || 0;
+
+      if (data === 'previous_button' && currentMatchIndex > 0) {
+        userProfile.viewingMatchIndex = currentMatchIndex - 1;
+      } else if (data === 'next_button' && currentMatchIndex < matchesProfiles.length - 1) {
+        userProfile.viewingMatchIndex = currentMatchIndex + 1;
+      }
+
+      const newMatchIndex = userProfile.viewingMatchIndex || 0;
+      const newMatchProfile = matchesProfiles[newMatchIndex];
+
+      await sendMatchProfile(chatId, newMatchProfile, userProfile, messageId);
     }
   } catch (err) {
     console.error('Ошибка:', err);
@@ -524,14 +538,52 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             }
           }  else if (msg.text === BUTTONS.MATCHES.en || msg.text === BUTTONS.MATCHES.ru) {
             currentUserState.set(userId, 'viewing_matches');
+
             bot.sendMessage(chatId, 'Просмотр совпадений', {
               reply_markup: {
-                keyboard: i18n.__('viewing_matches_buttons'),
+                keyboard: i18n.__('back_button'),
                 resize_keyboard: true
               }});
-            }//далее условия для "Вы понравились"
+
+            const matchesProfiles = await getMatchesProfiles(userProfile);
+          
+            if (matchesProfiles.length > 0) {
+              const currentMatchIndex = userProfile.viewingMatchIndex || 0;
+              const currentMatchProfile = matchesProfiles[currentMatchIndex];
+              
+              await sendMatchProfile(chatId, currentMatchProfile, userProfile);
+              
+            } else {
+              currentUserState.set(userId, 'main_menu');
+              await bot.sendMessage(chatId, i18n.__('no_matches_message'), {
+                reply_markup: {
+                  keyboard: i18n.__('main_menu_buttons'),
+                  resize_keyboard: true,
+                },
+              });
+            }
+
+            } else if (msg.text === BUTTONS.LIKES_YOU.en || msg.text === BUTTONS.LIKES_YOU.ru) {
+              currentUserState.set(userId, 'likes_you');
+              await bot.sendMessage(chatId, i18n.__('no_matches_message'), {
+                reply_markup: {
+                  keyboard: i18n.__('viewing_matches_buttons'),
+                  resize_keyboard: true,
+                },
+              });
+            }
           break;
         case 'viewing_matches':
+          if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+            currentUserState.set(userId, 'main_menu');
+            bot.sendMessage(chatId, i18n.__('main_menu_message'), {
+              reply_markup: {
+                keyboard: i18n.__('main_menu_buttons'),
+                resize_keyboard: true
+              }});
+          }
+          break;
+        case 'likes_you':
           if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
             currentUserState.set(userId, 'main_menu');
             bot.sendMessage(chatId, i18n.__('main_menu_message'), {
@@ -920,11 +972,70 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
   }
 });
 
+async function getMatchesProfiles(userProfile) {
+  try {
+    const matchesProfiles = await Profile.find({
+      _id: { $in: userProfile.matches },
+    });
+
+    return matchesProfiles;
+  } catch (error) {
+    console.error('Error getting matches profiles:', error);
+    return [];
+  }
+}
+
+async function sendMatchProfile(chatId, matchProfile, userProfile, messageId) {
+  try {
+    const aboutMeText = matchProfile.aboutMe ? `<blockquote><i>${matchProfile.aboutMe}</i></blockquote>` : '';
+    
+    const distance = await calculateAndReturnDistance(userProfile, matchProfile);
+    const distanceText = distance !== null ? `\n📍 ${distance} ${i18n.__('km_away_message')}` : '';
+
+    const editParams = {
+      media: { type: 'photo', media: matchProfile.profilePhoto.photoPath },
+      caption: `${matchProfile.profileName}, ${matchProfile.age}\n${i18n.__('candidate_lives_message')}${matchProfile.location.locality}, ${matchProfile.location.country}${distanceText}\n${getLastActivityStatus(matchProfile.lastActivity)}\n${aboutMeText}`,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: i18n.__('previous_match_button'), callback_data: 'previous_button' },
+            { text: i18n.__('next_match_button'), callback_data: 'next_button' },
+          ],
+        ],
+      },
+      parse_mode: 'HTML',
+    };
+
+    // Проверяем наличие messageId перед вызовом editMessageMedia
+    if (messageId) {
+      await bot.editMessageMedia({ chatId, messageId }, editParams);
+    } else {
+      await bot.sendPhoto(chatId, matchProfile.profilePhoto.photoPath, editParams);
+    }
+    
+    // await bot.sendPhoto(chatId, matchProfile.profilePhoto.photoPath, {
+    //   caption: `${matchProfile.profileName}, ${matchProfile.age}\n${i18n.__('candidate_lives_message')}${matchProfile.location.locality}, ${matchProfile.location.country}${distanceText}\n${getLastActivityStatus(matchProfile.lastActivity)}\n${aboutMeText}`,
+    //   reply_markup: {
+    //     inline_keyboard: [
+    //       [
+    //         { text: i18n.__('previous_match_button'), callback_data: 'previous_button' },
+    //         { text: i18n.__('next_match_button'), callback_data: 'next_button' },
+    //       ],
+    //     ],
+    //   },
+    //   parse_mode: 'HTML',
+    //   protect_content: true,
+    // });
+  } catch (error) {
+    console.error('Error sending match profile:', error);
+  }
+}
+
 async function sendMyProfile(chatId, userProfile) {
   let aboutMeText = userProfile.aboutMe ? `<blockquote><i>${userProfile.aboutMe}</i></blockquote>` : '';
   const genderText = userProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
   bot.sendPhoto(chatId, userProfile.profilePhoto.photoPath, {
-    caption: `${userProfile.profileName}, ${userProfile.age}\n 🏠${userProfile.location.locality}, ${userProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${genderText}\n\n${aboutMeText}`,
+    caption: `${userProfile.profileName}, ${userProfile.age}\n🏠${userProfile.location.locality}, ${userProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${genderText}\n${aboutMeText}`,
     reply_markup: {
       keyboard: i18n.__('myprofile_buttons'),
       resize_keyboard: true
@@ -936,9 +1047,9 @@ async function sendMyProfile(chatId, userProfile) {
 
 async function sendMyUpdatedProfile(chatId, updatedProfile) {
   let aboutMeText = updatedProfile.aboutMe ? `<blockquote><i>${updatedProfile.aboutMe}</i></blockquote>` : '';
-  const genderText = userProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
+  const genderText = updatedProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
   bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
-    caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🏠${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${genderText} ${updatedProfile.gender}\n\n${aboutMeText}`,
+    caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n🏠${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${genderText} ${updatedProfile.gender}\n${aboutMeText}`,
     reply_markup: {
       keyboard: i18n.__('myprofile_buttons'),
       resize_keyboard: true
@@ -975,10 +1086,10 @@ async function sendCandidateProfile(chatId, candidateProfile, userProfile) {
   let aboutMeText = candidateProfile.aboutMe ? `<blockquote><i>${candidateProfile.aboutMe}</i></blockquote>` : '';
 
   const distance = await calculateAndReturnDistance(userProfile, candidateProfile);
-  const distanceText = distance !== null ? `📍 ${distance} ${i18n.__('km_away_message')}` : '';
+  const distanceText = distance !== null ? `\n📍 ${distance} ${i18n.__('km_away_message')}` : '';
 
   await bot.sendPhoto(chatId, candidateProfile.profilePhoto.photoPath, {
-    caption: `${candidateProfile.profileName}, ${candidateProfile.age}\n${i18n.__('candidate_lives_message')}${candidateProfile.location.locality}, ${candidateProfile.location.country}\n${distanceText}\n${getLastActivityStatus(candidateProfile.lastActivity)}\n\n\n${aboutMeText}`,
+    caption: `${candidateProfile.profileName}, ${candidateProfile.age}\n${i18n.__('candidate_lives_message')}${candidateProfile.location.locality}, ${candidateProfile.location.country}${distanceText}\n${getLastActivityStatus(candidateProfile.lastActivity)}\n${aboutMeText}`,
     reply_markup: {
       keyboard: i18n.__('viewing_profiles_buttons'),
       resize_keyboard: true },

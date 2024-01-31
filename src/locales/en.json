@@ -34,7 +34,7 @@
 	"main_menu_message": "Here you can see 🎯 new candidates, 💘mutual likes or change your profile settings",
 	"main_menu_buttons": [
 		["👥 Profiles","💘 Matches"],
-		["⚙️ Settings","💕 You Liked"]
+		["⚙️ Settings","💕 Likes you"]
 	],
 	"settings_menu_message": "👇 Select the menu section",
 	"settings_menu_buttons": [
@@ -74,7 +74,7 @@
 	"error_agerange_input_message": "An error occurred while processing the entered age range.",
 	"set_age_range_message": "⌨️ Send a range of ages (for example: 18-35)",
 	"age_range_message": "Age preference:",
-	"location_message": "Location:",
+	"location_message": "🗺️ Location:",
 	"set_prefer_location_message": "🗺️ Enter the city to search for couples",
 	"candidate_not_found_message": "😔🔍 Unfortunately, at the moment, we cannot provide suitable candidates according to your preferences. Please review the search parameters, such as age or region, and try again.",
 	"user_liked_message": "💕 Someone liked you",
@@ -89,5 +89,8 @@
 	"write_liked_candidate_inline_keyboard": "💌 Open chat with",
 	"continue_viewing_message": "⏩ Continue viewing",
 	"candidate_lives_message": "🏠 Lives in ",
-	"km_away_message": "km away"
+	"km_away_message": "km away",
+	"previous_match_button": "⏪",
+	"next_match_button": "⏩",
+	"no_matches_message": "💔 No matches found"
 }

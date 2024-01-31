@@ -76,9 +76,9 @@ const BUTTONS = {
     en: '⚙️ Settings',
     ru: '⚙️ Настройки'
   },
-  YOU_LIKED: {
-    en: '💕 You Liked',
-    ru: '💕 Вам понравилось'
+  LIKES_YOU: {
+    en: '💕 Likes you',
+    ru: '💕 Вы понравились'
   },
   MAKE_A_GIFT: {
     en: '🎁 Make a gift',
