@@ -450,7 +450,9 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
   const locationMessage = msg.location;
   const cityName = msg.text;
 
-  console.log('User current state:', currentUserState.get(userId));
+  //console.log('User current state:', currentUserState.get(userId));
+  console.log('MSG:', msg);
+
   // Получаем текущее состояние пользователя
   try {
     // Найти пользователя по идентификатору
@@ -988,44 +990,44 @@ async function getMatchesProfiles(userProfile) {
 async function sendMatchProfile(chatId, matchProfile, userProfile, messageId) {
   try {
     const aboutMeText = matchProfile.aboutMe ? `<blockquote><i>${matchProfile.aboutMe}</i></blockquote>` : '';
-    
     const distance = await calculateAndReturnDistance(userProfile, matchProfile);
     const distanceText = distance !== null ? `\n📍 ${distance} ${i18n.__('km_away_message')}` : '';
-
-    const editParams = {
-      media: { type: 'photo', media: matchProfile.profilePhoto.photoPath },
-      caption: `${matchProfile.profileName}, ${matchProfile.age}\n${i18n.__('candidate_lives_message')}${matchProfile.location.locality}, ${matchProfile.location.country}${distanceText}\n${getLastActivityStatus(matchProfile.lastActivity)}\n${aboutMeText}`,
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: i18n.__('previous_match_button'), callback_data: 'previous_button' },
-            { text: i18n.__('next_match_button'), callback_data: 'next_button' },
-          ],
-        ],
-      },
-      parse_mode: 'HTML',
-    };
-
+    const captionInfo = `${matchProfile.profileName}, ${matchProfile.age}\n${i18n.__('candidate_lives_message')}${matchProfile.location.locality}, ${matchProfile.location.country}${distanceText}\n${getLastActivityStatus(matchProfile.lastActivity)}\n${aboutMeText}`;
+    
     // Проверяем наличие messageId перед вызовом editMessageMedia
     if (messageId) {
-      await bot.editMessageMedia({ chatId, messageId }, editParams);
+      await bot.editMessageMedia(
+        { type: 'photo', media: matchProfile.profilePhoto.photoPath,
+        caption: captionInfo,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: i18n.__('previous_match_button'), callback_data: 'previous_button' },
+              { text: i18n.__('next_match_button'), callback_data: 'next_button' },
+            ],
+          ],
+        },
+        parse_mode: 'HTML' },
+        {chat_id: chatId, message_id: messageId},
+        );
+
     } else {
-      await bot.sendPhoto(chatId, matchProfile.profilePhoto.photoPath, editParams);
+        await bot.sendPhoto(chatId, matchProfile.profilePhoto.photoPath, {
+          caption: captionInfo,
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: i18n.__('previous_match_button'), callback_data: 'previous_button' },
+                { text: i18n.__('next_match_button'), callback_data: 'next_button' },
+              ],
+            ],
+          },
+          parse_mode: 'HTML',
+          protect_content: true,
+        });
     }
     
-    // await bot.sendPhoto(chatId, matchProfile.profilePhoto.photoPath, {
-    //   caption: `${matchProfile.profileName}, ${matchProfile.age}\n${i18n.__('candidate_lives_message')}${matchProfile.location.locality}, ${matchProfile.location.country}${distanceText}\n${getLastActivityStatus(matchProfile.lastActivity)}\n${aboutMeText}`,
-    //   reply_markup: {
-    //     inline_keyboard: [
-    //       [
-    //         { text: i18n.__('previous_match_button'), callback_data: 'previous_button' },
-    //         { text: i18n.__('next_match_button'), callback_data: 'next_button' },
-    //       ],
-    //     ],
-    //   },
-    //   parse_mode: 'HTML',
-    //   protect_content: true,
-    // });
+
   } catch (error) {
     console.error('Error sending match profile:', error);
   }
@@ -1252,12 +1254,12 @@ async function handleAgeRangeInput(userId, input, chatId) {
 
 async function updateUserLastActivity(userId) {
   try {
-    const updatedProfile = await Profile.findOneAndUpdate(
+    let updatedProfile = await Profile.findOneAndUpdate(
       { telegramId: userId },
       { lastActivity: Date.now() },
       { new: true }
     );
-    console.log('User lastActivity updated:', updatedProfile);
+    //console.log('User lastActivity updated:', updatedProfile);
   } catch (error) {
     console.error('Error updating user lastActivity:', error);
   }
