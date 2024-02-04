@@ -423,20 +423,27 @@ bot.on('callback_query', async (callbackQuery) => {
           resize_keyboard: true
         }}
       )
-    } else if ('previous_button' === data || 'next_button' === data) {
+    } else if ('previous_match_button' === data || 'next_match_button' === data || 'first_match_button' === data || 'last_match_button' === data) {
       const matchesProfiles = await getMatchesProfiles(userProfile);
       let currentMatchIndex = userProfile.viewingMatchIndex || 0;
+      
+        if ('previous_match_button' === data && currentMatchIndex > 0) {
+          currentMatchIndex--;
+        } else if ('next_match_button' === data && currentMatchIndex < matchesProfiles.length - 1) {
+          currentMatchIndex++;
+        } else if ('first_match_button' === data && currentMatchIndex === 0) {
+          bot.answerCallbackQuery( callbackQuery.id, {text: i18n.__('no_previous_matches_message'), show_alert: false} );
+          return;
+        } else if ('last_match_button' === data && currentMatchIndex === matchesProfiles.length - 1) {
+          bot.answerCallbackQuery( callbackQuery.id, {text: i18n.__('no_next_matches_message'), show_alert: false} );
+          return;
+        }
 
-      if (data === 'previous_button' && currentMatchIndex > 0) {
-        userProfile.viewingMatchIndex = currentMatchIndex - 1;
-      } else if (data === 'next_button' && currentMatchIndex < matchesProfiles.length - 1) {
-        userProfile.viewingMatchIndex = currentMatchIndex + 1;
-      }
+      userProfile.viewingMatchIndex = currentMatchIndex;
+      await userProfile.save();
 
-      const newMatchIndex = userProfile.viewingMatchIndex || 0;
-      const newMatchProfile = matchesProfiles[newMatchIndex];
-
-      await sendMatchProfile(chatId, newMatchProfile, userProfile, messageId);
+      const currentMatchProfile = matchesProfiles[currentMatchIndex];
+      await sendMatchProfile(chatId, currentMatchProfile, userProfile, messageId);
     }
   } catch (err) {
     console.error('Ошибка:', err);
@@ -552,7 +559,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             if (matchesProfiles.length > 0) {
               const currentMatchIndex = userProfile.viewingMatchIndex || 0;
               const currentMatchProfile = matchesProfiles[currentMatchIndex];
-              
+
               await sendMatchProfile(chatId, currentMatchProfile, userProfile);
               
             } else {
@@ -993,35 +1000,37 @@ async function sendMatchProfile(chatId, matchProfile, userProfile, messageId) {
     const distance = await calculateAndReturnDistance(userProfile, matchProfile);
     const distanceText = distance !== null ? `\n📍 ${distance} ${i18n.__('km_away_message')}` : '';
     const captionInfo = `${matchProfile.profileName}, ${matchProfile.age}\n${i18n.__('candidate_lives_message')}${matchProfile.location.locality}, ${matchProfile.location.country}${distanceText}\n${getLastActivityStatus(matchProfile.lastActivity)}\n${aboutMeText}`;
-    
+    const currentMatchIndex = userProfile.viewingMatchIndex || 0;
+
+    // Set callback_data based on match index
+    const previousCallbackData = currentMatchIndex > 0 ? 'previous_match_button' : 'first_match_button';
+    const nextCallbackData = currentMatchIndex < userProfile.matches.length - 1 ? 'next_match_button' : 'last_match_button';
+
+    // Create inline keyboard based on match index
+    const inlineKeyboardMain = {
+      inline_keyboard: [
+        [
+          { text: i18n.__(previousCallbackData), callback_data: previousCallbackData },
+          { text: i18n.__(nextCallbackData), callback_data: nextCallbackData },
+        ],
+      ],
+    }
+
     // Проверяем наличие messageId перед вызовом editMessageMedia
     if (messageId) {
       await bot.editMessageMedia(
         { type: 'photo', media: matchProfile.profilePhoto.photoPath,
-        caption: captionInfo,
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: i18n.__('previous_match_button'), callback_data: 'previous_button' },
-              { text: i18n.__('next_match_button'), callback_data: 'next_button' },
-            ],
-          ],
+          caption: captionInfo,
+          parse_mode: 'HTML',
         },
-        parse_mode: 'HTML' },
-        {chat_id: chatId, message_id: messageId},
-        );
+        { chat_id: chatId, message_id: messageId, 
+          reply_markup: inlineKeyboardMain,
+        });
 
     } else {
         await bot.sendPhoto(chatId, matchProfile.profilePhoto.photoPath, {
           caption: captionInfo,
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: i18n.__('previous_match_button'), callback_data: 'previous_button' },
-                { text: i18n.__('next_match_button'), callback_data: 'next_button' },
-              ],
-            ],
-          },
+          reply_markup: inlineKeyboardMain,
           parse_mode: 'HTML',
           protect_content: true,
         });

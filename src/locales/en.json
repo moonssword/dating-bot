@@ -92,5 +92,9 @@
 	"km_away_message": "km away",
 	"previous_match_button": "⏪",
 	"next_match_button": "⏩",
-	"no_matches_message": "💔 No matches found"
+	"first_match_button": "⏮️",
+	"last_match_button": "⏭️",
+	"no_matches_message": "💔 No matches found",
+	"no_next_matches_message": "No more matches available. Press ⏪",
+	"no_previous_matches_message": "No more matches available. Press ⏩"
 }

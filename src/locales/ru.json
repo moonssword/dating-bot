@@ -92,5 +92,9 @@
 	"km_away_message": "км от вас",
 	"previous_match_button": "⏪",
 	"next_match_button": "⏩",
-	"no_matches_message": "💔 Совпадений не найдено"
+	"first_match_button": "⏮️",
+	"last_match_button": "⏭️",
+	"no_matches_message": "💔 Совпадений не найдено",
+	"no_next_matches_message": "Больше нет доступных совпадений. Нажмите ⏪",
+	"no_previous_matches_message": "Больше нет доступных совпадений. Нажмите ⏩"
 }
