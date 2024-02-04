@@ -95,6 +95,6 @@
 	"first_match_button": "⏮️",
 	"last_match_button": "⏭️",
 	"no_matches_message": "💔 No matches found",
-	"no_next_matches_message": "No more matches available. Press ⏪",
-	"no_previous_matches_message": "No more matches available. Press ⏩"
+	"no_next_matches_message": "⚠️ No more matches available",
+	"no_previous_matches_message": "⚠️ No more matches available"
 }

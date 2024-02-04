@@ -52,7 +52,7 @@ const profileSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
-  telegramId: Number,
+  telegramId: { type: Number, int32: false },
   userName: String,
   profileName: String,
   gender: String,
@@ -74,8 +74,11 @@ const profileSchema = new mongoose.Schema({
     },
   },
   profilePhoto: {
-    photo_id: mongoose.Schema.Types.ObjectId,
-    telegramId: Number,
+    photo_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'UserPhoto',
+    },
+    telegramId: { type: Number, int32: false },
     photoPath: String,
     photoLocalPath: String,
     uploadDate: Date,
@@ -91,15 +94,15 @@ const profileSchema = new mongoose.Schema({
     longitude: Number,
   },
   likedProfiles: [{
-    type: mongoose.Schema.Types.ObjectId,
+    type: Number,
     ref: 'Profile',
   }],
   dislikedProfiles: [{
-    type: mongoose.Schema.Types.ObjectId,
+    type: Number,
     ref: 'Profile',
   }],
   matches: [{
-    type: mongoose.Schema.Types.ObjectId,
+    type: Number,
     ref: 'Profile',
   }],
   viewingMatchIndex: Number,
@@ -127,12 +130,12 @@ const userPhotoSchema = new mongoose.Schema({
 //Модель фотографий профиля
 const UserPhoto = mongoose.model('UserPhoto', userPhotoSchema, 'usersPhotos');
 
-//Схема совпадений
-const matchesSchema = new mongoose.Schema({
-  user_id: mongoose.Schema.Types.ObjectId,
-}, { versionKey: false });
-//Модель совпадений
-const Matches = mongoose.model('Matches', matchesSchema, 'matches');
+// //Схема совпадений
+// const matchesSchema = new mongoose.Schema({
+//   user_id: mongoose.Schema.Types.ObjectId,
+// }, { versionKey: false });
+// //Модель совпадений
+// const Matches = mongoose.model('Matches', matchesSchema, 'matches');
 
 const bot = new TelegramBot(process.env.bot_token, { polling: true });
 
@@ -548,17 +551,17 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           }  else if (msg.text === BUTTONS.MATCHES.en || msg.text === BUTTONS.MATCHES.ru) {
             currentUserState.set(userId, 'viewing_matches');
 
-            bot.sendMessage(chatId, 'Просмотр совпадений', {
-              reply_markup: {
-                keyboard: i18n.__('back_button'),
-                resize_keyboard: true
-              }});
-
             const matchesProfiles = await getMatchesProfiles(userProfile);
           
             if (matchesProfiles.length > 0) {
               const currentMatchIndex = userProfile.viewingMatchIndex || 0;
               const currentMatchProfile = matchesProfiles[currentMatchIndex];
+
+              bot.sendMessage(chatId, 'Просмотр совпадений', {
+                reply_markup: {
+                  keyboard: i18n.__('back_button'),
+                  resize_keyboard: true
+                }});
 
               await sendMatchProfile(chatId, currentMatchProfile, userProfile);
               
@@ -643,15 +646,14 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             if (candidateProfile) {
 
               //Сохранить информацию о лайке
-              const likedCandidateProfileId = candidateProfile._id;
               const likedCandidateProfileTelegramId = candidateProfile.telegramId;
-              userProfile.likedProfiles.push(likedCandidateProfileId);
+              userProfile.likedProfiles.push(likedCandidateProfileTelegramId);
               await userProfile.save();
 
               // Проверить, если пользователь, которому отправлен лайк, также лайкнул текущего пользователя
               const likedCandidateProfile = await Profile.findOne({
                 telegramId: likedCandidateProfileTelegramId,
-                likedProfiles: userProfile._id,
+                likedProfiles: userProfile.telegramId,
               });
                 if (likedCandidateProfile) {
                   //Отправить уведомление о взаимной симпатии
@@ -689,8 +691,8 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
 
             const candidateProfile = await getCandidateProfile(Profile, userProfile);
             if (candidateProfile) {
-              const dislikedProfileId = candidateProfile._id;
-              userProfile.dislikedProfiles.push(dislikedProfileId);
+              const dislikedProfileTelegramId = candidateProfile.telegramId;
+              userProfile.dislikedProfiles.push(dislikedProfileTelegramId);
               await userProfile.save();
               const nextCandidateProfile = await getCandidateProfile(Profile, userProfile);
               if (nextCandidateProfile) {
@@ -984,7 +986,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
 async function getMatchesProfiles(userProfile) {
   try {
     const matchesProfiles = await Profile.find({
-      _id: { $in: userProfile.matches },
+      telegramId: { $in: userProfile.matches },
     });
 
     return matchesProfiles;
@@ -1011,6 +1013,7 @@ async function sendMatchProfile(chatId, matchProfile, userProfile, messageId) {
       inline_keyboard: [
         [
           { text: i18n.__(previousCallbackData), callback_data: previousCallbackData },
+          { text: '💌', url: `https://t.me/${matchProfile.userName}` },
           { text: i18n.__(nextCallbackData), callback_data: nextCallbackData },
         ],
       ],
@@ -1113,8 +1116,8 @@ async function sendCandidateProfile(chatId, candidateProfile, userProfile) {
 async function sendMatchNotification(likedCandidateProfile, userProfile, i18n, User, existingUser) {
   
   try {
-    userProfile.matches.push(likedCandidateProfile._id);
-    likedCandidateProfile.matches.push(userProfile._id);
+    userProfile.matches.push(likedCandidateProfile.telegramId);
+    likedCandidateProfile.matches.push(userProfile.telegramId);
 
     await userProfile.save();
     await likedCandidateProfile.save();
@@ -1204,7 +1207,7 @@ async function getCandidateProfile(Profile, userProfile) {
       age: { $gte: userProfile.preferences.ageRange.min, $lte: userProfile.preferences.ageRange.max },
       'location.locality': userProfile.preferences.preferredLocation.locality,
       'location.country': userProfile.preferences.preferredLocation.country,
-      _id: { $nin: [...userProfile.likedProfiles, ...userProfile.dislikedProfiles, ...userProfile.matches] },
+      telegramId: { $nin: [...userProfile.likedProfiles, ...userProfile.dislikedProfiles, ...userProfile.matches] },
       // Другие условия совпадения в соответствии с предпочтениями пользователя
       //'location': {'$near': {'$geometry': {'type': 'Point', 'coordinates': [user_longitude, user_latitude]}, '$maxDistance': max_distance}}
       'preferences.preferredGender': userProfile.gender,
@@ -1212,8 +1215,7 @@ async function getCandidateProfile(Profile, userProfile) {
       'preferences.ageRange.max': { $gte: userProfile.age },
     });
 
-    //const isProfileLiked = userProfile.likedProfiles.includes(candidateProfile._id);
-    if (candidateProfile /*&& !isProfileLiked*/) {
+    if (candidateProfile) {
       return candidateProfile.toObject();
     } else {
       return null; // Если кандидат не найден
