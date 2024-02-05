@@ -41,7 +41,6 @@
 		["👤 My profile","🔍 Search settings"],
 		["⬅️ Back","🌐 Interface language"]
 	],
-	"myprofile_gender_message": "Gender: ",
 	"myprofile_buttons": [
 		["🔠 Name","📅 Date of birth"],
 		["📸 Photo","✍️ About me"],
@@ -55,7 +54,7 @@
 	"user_profiles_message": "Any Profile photo with info",
 	"viewing_profiles_buttons": [
 		["❌","💚"],
-		["⬅️ Back","🎁 Make a gift"]
+		["⬅️ Back"]
 	],
 	"back_button": [
 		["⬅️ Back"]
@@ -69,6 +68,7 @@
 	],
 	"enter_profilename_message": "What is your name?",
 	"enter_aboutme_message": "✍️ Write a few lines about yourself",
+	"about_me_length_error": "⚠️ The entered text is too long. Please make sure your description contains no more than 1000 characters.",
 	"wrong_choise_message": "👆 Select one of the options or click ⬅️ back",
 	"wrong_agerange_message": "⚠️ The age range is incorrect. Please enter integers",
 	"error_agerange_input_message": "An error occurred while processing the entered age range.",
@@ -94,6 +94,7 @@
 	"next_match_button": "⏩",
 	"first_match_button": "⏮️",
 	"last_match_button": "⏭️",
+	"delete_match_button": "❌ Delete match",
 	"no_matches_message": "💔 No matches found",
 	"no_next_matches_message": "⚠️ No more matches available",
 	"no_previous_matches_message": "⚠️ No more matches available"

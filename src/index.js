@@ -80,7 +80,7 @@ const profileSchema = new mongoose.Schema({
     },
     telegramId: { type: Number, int32: false },
     photoPath: String,
-    photoLocalPath: String,
+    photoBlurredPath: String,
     uploadDate: Date,
   },
   location: {
@@ -121,7 +121,7 @@ const userPhotoSchema = new mongoose.Schema({
   photos: [{
     filename: String,
     path: String,
-    localPath: String,
+    blurredPath: String,
     size: Number,
     uploadDate: { type: Date, default: Date.now },
     verifiedPhoto: { type: Boolean, default: false },
@@ -217,6 +217,7 @@ bot.on('callback_query', async (callbackQuery) => {
   const existingUser = await User.findOne({ telegramId: userId });
   const userProfile = await Profile.findOne({ telegramId: userId });
   await updateUserLastActivity(userId);
+  const buttonsViewMatches = ['previous_match_button', 'next_match_button', 'first_match_button', 'last_match_button', 'delete_match_button']; //Обработчик совпадений
 
   try {
     if ('registration' === data) {
@@ -426,7 +427,7 @@ bot.on('callback_query', async (callbackQuery) => {
           resize_keyboard: true
         }}
       )
-    } else if ('previous_match_button' === data || 'next_match_button' === data || 'first_match_button' === data || 'last_match_button' === data) {
+    } else if (buttonsViewMatches.includes(data)) {
       const matchesProfiles = await getMatchesProfiles(userProfile);
       let currentMatchIndex = userProfile.viewingMatchIndex || 0;
       
@@ -439,6 +440,9 @@ bot.on('callback_query', async (callbackQuery) => {
           return;
         } else if ('last_match_button' === data && currentMatchIndex === matchesProfiles.length - 1) {
           bot.answerCallbackQuery( callbackQuery.id, {text: i18n.__('no_next_matches_message'), show_alert: false} );
+          return;
+        } else if ('delete_match_button' === data) {
+          //Удаление совпадения
           return;
         }
 
@@ -460,8 +464,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
   const locationMessage = msg.location;
   const cityName = msg.text;
 
-  //console.log('User current state:', currentUserState.get(userId));
-  console.log('MSG:', msg);
+  console.log('User current state:', currentUserState.get(userId));
 
   // Получаем текущее состояние пользователя
   try {
@@ -849,6 +852,16 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
             currentUserState.set(userId, 'my_profile');
             sendMyProfile(chatId, userProfile);
+          }  else if (msg.text.length > 1000) {
+            const errorMessage = await bot.sendMessage(chatId, i18n.__('about_me_length_error'), {
+            });
+            setTimeout(async () => {
+              try {
+                await bot.deleteMessage(chatId, errorMessage.message_id);
+              } catch (error) {
+                console.error('Error deleting error message:', error);
+              }
+            }, 3000);
           } else {
             const updatedProfile = await Profile.findOneAndUpdate(
               { telegramId: userId },
@@ -856,8 +869,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
               { new: true }
             );
             console.log('User aboutMe updated:', updatedProfile);
-        
-            // Вернитесь к предыдущему состоянию, например, 'my_profile'
+
             currentUserState.set(userId, 'my_profile');
             sendMyUpdatedProfile(chatId, updatedProfile);
           }
@@ -1049,7 +1061,7 @@ async function sendMyProfile(chatId, userProfile) {
   let aboutMeText = userProfile.aboutMe ? `<blockquote><i>${userProfile.aboutMe}</i></blockquote>` : '';
   const genderText = userProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
   bot.sendPhoto(chatId, userProfile.profilePhoto.photoPath, {
-    caption: `${userProfile.profileName}, ${userProfile.age}\n🏠${userProfile.location.locality}, ${userProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${genderText}\n${aboutMeText}`,
+    caption: `${userProfile.profileName}, ${userProfile.age}\n🏠${userProfile.location.locality}, ${userProfile.location.country}\n${genderText}\n${aboutMeText}`,
     reply_markup: {
       keyboard: i18n.__('myprofile_buttons'),
       resize_keyboard: true
@@ -1063,7 +1075,7 @@ async function sendMyUpdatedProfile(chatId, updatedProfile) {
   let aboutMeText = updatedProfile.aboutMe ? `<blockquote><i>${updatedProfile.aboutMe}</i></blockquote>` : '';
   const genderText = updatedProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
   bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
-    caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n🏠${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${genderText} ${updatedProfile.gender}\n${aboutMeText}`,
+    caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n🏠${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${genderText}\n${aboutMeText}`,
     reply_markup: {
       keyboard: i18n.__('myprofile_buttons'),
       resize_keyboard: true
@@ -1169,25 +1181,9 @@ async function sendLikeNotificationBlurPhoto(likedCandidateProfileTelegramId, us
   const likedCandidateUser = await User.findOne({ telegramId: likedCandidateProfileTelegramId });
   const likedCandidateLanguageCode = likedCandidateUser.languageCode;
 
-  const blurredPhotoBuffer = await blurImage(userProfile.profilePhoto.photoLocalPath);
-
-  // Функция для размытия изображения
-  async function blurImage(photoPath) {
-    try {
-      const imageBuffer = await sharp(photoPath)
-        .resize(300) // Размер, на который вы хотите изменить изображение
-        .blur(15) // Значение размытия
-        .toBuffer();
-
-      return imageBuffer;
-    } catch (error) {
-      console.error('Error blurring image:', error);
-      return null;
-    }
-  }
   try {
     i18n.setLocale(likedCandidateLanguageCode);
-    bot.sendPhoto(likedCandidateProfileTelegramId, blurredPhotoBuffer, {
+    bot.sendPhoto(likedCandidateProfileTelegramId, userProfile.profilePhoto.photoBlurredPath, {
       caption: `${i18n.__('user_liked_message')}`,
       //Отправить inline-кнопку (возможность просматривать лайки, реализация позже)
       parse_mode: 'HTML',
@@ -1208,6 +1204,7 @@ async function getCandidateProfile(Profile, userProfile) {
       'location.locality': userProfile.preferences.preferredLocation.locality,
       'location.country': userProfile.preferences.preferredLocation.country,
       telegramId: { $nin: [...userProfile.likedProfiles, ...userProfile.dislikedProfiles, ...userProfile.matches] },
+      'dislikedProfiles': { $ne: userProfile.telegramId },
       // Другие условия совпадения в соответствии с предпочтениями пользователя
       //'location': {'$near': {'$geometry': {'type': 'Point', 'coordinates': [user_longitude, user_latitude]}, '$maxDistance': max_distance}}
       'preferences.preferredGender': userProfile.gender,

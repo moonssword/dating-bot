@@ -10,6 +10,7 @@ import fetch from 'node-fetch';
 import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
+import sharp from 'sharp';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -71,7 +72,6 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
         // Получение информации о фотографии
         const photo = msg.photo[msg.photo.length - 1];
         const fileId = photo.file_id;
-        console.log('Фото', msg.photo);
 
         // Получение URL фотографии
         const file = await bot.getFile(fileId);
@@ -81,22 +81,13 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
         const buffer = Buffer.from(arrayBuffer);
 
         // Сохранение фотографии в S3
-        const { filePath, uniquePhotoId } = await uploadPhotoToS3(buffer);
+        const photoFilename = `${uuidv4()}.jpg`;
+        const originalPhotoPath = await uploadPhotoToS3(buffer, photoFilename);
 
-        // Сохранение фотографии локально
-        const localFilePath = `./photos/${uniquePhotoId}.jpg`; // Путь для сохранения локальной копии
-        // if (!fs.existsSync('./photos')) {
-        //     fs.mkdirSync('./photos');
-        // }
-        fs.writeFileSync(localFilePath, buffer);
-
-        // Загрузка изображения
+        // Загрузка и Распознавание лиц на изображении
         const img = await canvas.loadImage(photoUrl);
-
-        // Распознавание лиц на изображении
         const detections = await faceapi.detectAllFaces(img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.2 })).withFaceLandmarks().withFaceDescriptors();
 
-        // Проверка наличия лица
         if (detections.length === 0) {
             // Если на фото нет лица
             const rejectionMessage = await bot.sendMessage(chatId, i18n.__('photo_rejected_message'));
@@ -125,12 +116,15 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
             if (!userPhoto) {
                 userPhoto = new UserPhoto({ user_id: existingUser._id, telegramId: userId, photos: [] });
             }
+            // Генерация и загрузка размытой версии фото
+            const blurredBuffer = await blurImage(buffer);
+            const blurredPhotoPath = await uploadPhotoToS3(blurredBuffer, `${photoFilename}_b.jpg`);
 
             // Добавление фотографии в массив
             userPhoto.photos.push({
-                filename: `${uniquePhotoId}.jpg`,
-                path: filePath,
-                localPath: localFilePath,
+                filename: photoFilename,
+                path: originalPhotoPath,
+                blurredPath: blurredPhotoPath,
                 size: buffer.length,
                 uploadDate: new Date(),
                 verifiedPhoto: detections.length > 0, // true если фотография прошла проверку
@@ -143,8 +137,8 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
                 { user_id: existingUser._id },
                 { profilePhoto: {
                     photo_id: lastPhotoId,
-                    photoPath: filePath,
-                    photoLocalPath: localFilePath,
+                    photoPath: originalPhotoPath,
+                    photoBlurredPath: blurredPhotoPath,
                     uploadDate: new Date(),
                     },
                 },
@@ -207,9 +201,8 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
 export default { handlePhoto };
 
 // Функция для загрузки фотографии на сервер S3
-async function uploadPhotoToS3(buffer) {
-    const uniquePhotoId = uuidv4();
-    const s3Key = `photos/${uniquePhotoId}.jpg`;
+async function uploadPhotoToS3(buffer, filename) {
+    const s3Key = `photos/${filename}`;
     const s3Params = {
         Bucket: 'dating-storage',
         Key: s3Key,
@@ -221,9 +214,23 @@ async function uploadPhotoToS3(buffer) {
     try {
         await s3.upload(s3Params).promise();
         console.log('Photo successfully uploaded to S3');
-        return { filePath: `https://dating-storage.s3.aeza.cloud/${s3Key}`, uniquePhotoId };
+        return `https://dating-storage.s3.aeza.cloud/${s3Key}`;
     } catch (error) {
         console.error('Error uploading photo to S3:', error);
         throw new Error('Error uploading photo to S3');
+    }
+}
+
+async function blurImage(buffer) {
+    try {
+        const imageBuffer = await sharp(buffer)
+            .resize(300) // Размер, на который вы хотите изменить изображение
+            .blur(15) // Значение размытия
+            .toBuffer();
+
+        return imageBuffer;
+    } catch (error) {
+        console.error('Error blurring image:', error);
+        return null;
     }
 }
