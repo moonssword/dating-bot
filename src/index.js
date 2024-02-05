@@ -8,7 +8,6 @@ import { handlePhoto } from './photoHandler.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { BUTTONS } from './constants.js';
-import sharp from 'sharp';
 import moment from 'moment';
 
 process.env.NTBA_FIX_319 = 1;
