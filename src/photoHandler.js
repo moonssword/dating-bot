@@ -181,8 +181,9 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
                         await bot.deleteMessage(chatId, verifiedMessage.message_id);
                         currentUserState.set(userId, 'my_profile');
                         let aboutMeText = updatedProfile.aboutMe ? `<blockquote><i>${updatedProfile.aboutMe}</i></blockquote>` : '';
+                        const genderText = updatedProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
                         await bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
-                            caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${i18n.__('myprofile_gender_message')} ${updatedProfile.gender}\n\n${aboutMeText}`,
+                            caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${genderText}\n${aboutMeText}`,
                             reply_markup: {
                               keyboard: i18n.__('myprofile_buttons'),
                               resize_keyboard: true
