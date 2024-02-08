@@ -32,7 +32,7 @@ i18n.configure({
 
 // Схема пользователя
 const userSchema = new mongoose.Schema({
-  telegramId: Number,
+  telegramId: { type: Number, int64: true },
   userName: String,
   firstName: String,
   lastName: String,
@@ -51,7 +51,7 @@ const profileSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
-  telegramId: { type: Number, int32: false },
+  telegramId: { type: Number, int64: true },
   userName: String,
   profileName: String,
   gender: String,
@@ -77,7 +77,7 @@ const profileSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'UserPhoto',
     },
-    telegramId: { type: Number, int32: false },
+    telegramId: { type: Number, int64: true },
     photoPath: String,
     photoBlurredPath: String,
     uploadDate: Date,
@@ -95,14 +95,17 @@ const profileSchema = new mongoose.Schema({
   likedProfiles: [{
     type: Number,
     ref: 'Profile',
+    int64: true,
   }],
   dislikedProfiles: [{
     type: Number,
     ref: 'Profile',
+    int64: true,
   }],
   matches: [{
     type: Number,
     ref: 'Profile',
+    int64: true,
   }],
   viewingMatchIndex: Number,
 }, { versionKey: false });
@@ -129,12 +132,15 @@ const userPhotoSchema = new mongoose.Schema({
 //Модель фотографий профиля
 const UserPhoto = mongoose.model('UserPhoto', userPhotoSchema, 'usersPhotos');
 
-// //Схема совпадений
-// const matchesSchema = new mongoose.Schema({
-//   user_id: mongoose.Schema.Types.ObjectId,
-// }, { versionKey: false });
-// //Модель совпадений
-// const Matches = mongoose.model('Matches', matchesSchema, 'matches');
+//Схема подписки
+const subscriptionsSchema = new mongoose.Schema({
+  user_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+}, { versionKey: false });
+//Модель подписки
+const Subscriptions = mongoose.model('Subscriptions', subscriptionsSchema, 'subscriptions');
 
 const bot = new TelegramBot(process.env.bot_token, { polling: true });
 
@@ -569,22 +575,12 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
               
             } else {
               currentUserState.set(userId, 'main_menu');
-              await bot.sendMessage(chatId, i18n.__('no_matches_message'), {
-                reply_markup: {
-                  keyboard: i18n.__('main_menu_buttons'),
-                  resize_keyboard: true,
-                },
-              });
+              await bot.sendMessage(chatId, i18n.__('no_matches_message'));
             }
 
             } else if (msg.text === BUTTONS.LIKES_YOU.en || msg.text === BUTTONS.LIKES_YOU.ru) {
               currentUserState.set(userId, 'likes_you');
-              await bot.sendMessage(chatId, i18n.__('no_matches_message'), {
-                reply_markup: {
-                  keyboard: i18n.__('viewing_matches_buttons'),
-                  resize_keyboard: true,
-                },
-              });
+              await sendLikesYouProfiles(chatId, userId, userProfile);
             }
           break;
         case 'viewing_matches':
@@ -993,6 +989,26 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
     bot.sendMessage(chatId, 'Произошла ошибка при обработке сообщения.');
   }
 });
+
+async function sendLikesYouProfiles(chatId, userId, userProfile) {
+  try {
+    const likesYouProfiles = await Profile.find({
+      likedProfiles: userProfile.telegramId,
+    });
+    console.log(likesYouProfiles);
+    if (likesYouProfiles.length > 0) {
+      for (const likedProfile of likesYouProfiles) {
+        await sendCandidateProfile(chatId, likedProfile, userProfile);
+      }
+    } else {
+      currentUserState.set(userId, 'main_menu');
+      await bot.sendMessage(chatId, i18n.__('no_likes_you_profiles_message'));
+    }
+  } catch (error) {
+    console.error('Error sending liked profiles:', error);
+  }
+}
+
 
 async function getMatchesProfiles(userProfile) {
   try {
