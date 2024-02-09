@@ -39,8 +39,7 @@ const userSchema = new mongoose.Schema({
   languageCode: String,
   globalUserState: String,
   isBot: Boolean,
-  createdAt: Date,
-}, { versionKey: false });
+}, { versionKey: false, timestamps: true  });
 // Модель пользователя
 userSchema.index({ telegramId: 1 }, { unique: true });
 const User = mongoose.model('User', userSchema, 'users');
@@ -59,7 +58,6 @@ const profileSchema = new mongoose.Schema({
   age: Number,
   interests: String,
   aboutMe: String,
-  createdAt: Date,
   lastActivity: Number,
   preferences: {
     preferredGender: String,
@@ -77,7 +75,6 @@ const profileSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'UserPhoto',
     },
-    telegramId: { type: Number, int64: true },
     photoPath: String,
     photoBlurredPath: String,
     uploadDate: Date,
@@ -108,7 +105,8 @@ const profileSchema = new mongoose.Schema({
     int64: true,
   }],
   viewingMatchIndex: Number,
-}, { versionKey: false });
+  viewingLikesYouIndex: Number,
+}, { versionKey: false, timestamps: true  });
 // Модель профиля
 profileSchema.index({ telegramId: 1 }, { unique: true });
 const Profile = mongoose.model('Profile', profileSchema, 'profiles');
@@ -119,7 +117,6 @@ const userPhotoSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
-  createdAt: Date,
   photos: [{
     filename: String,
     path: String,
@@ -128,18 +125,63 @@ const userPhotoSchema = new mongoose.Schema({
     uploadDate: { type: Date, default: Date.now },
     verifiedPhoto: { type: Boolean, default: false },
   }]
-}, { versionKey: false });
+}, { versionKey: false, timestamps: true  });
 //Модель фотографий профиля
 const UserPhoto = mongoose.model('UserPhoto', userPhotoSchema, 'usersPhotos');
 
-//Схема подписки
 const subscriptionsSchema = new mongoose.Schema({
   user_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
+    required: true,
   },
-}, { versionKey: false });
-//Модель подписки
+  telegramId: { type: Number, int64: true },
+  subscriptionType: {
+    type: String,
+    enum: ['basic', 'plus', 'premium'],
+    default: 'basic',
+  },
+  startDate: {
+    type: Date,
+    default: Date.now,
+  },
+  endDate: {
+    type: Date,
+    required: function() {
+      return this.subscriptionType !== 'basic';
+    }
+  },
+  isActive: {
+    type: Boolean,
+    default: false,
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'completed', 'failed', 'not_required'],
+    default: function() {
+      return this.subscriptionType === 'basic' ? 'not_required' : 'pending';
+    }
+  },
+  features: {
+    unlimitedLikes: {
+      type: Boolean,
+      default: true,
+    },
+    seeWhoLikesYou: {
+      type: Boolean,
+      default: false,
+    },
+    additionalSearchFilters: {
+      type: Boolean,
+      default: false,
+    },
+    adFree: {
+      type: Boolean,
+      default: false,
+    },
+  },
+}, { versionKey: false, timestamps: true });
+subscriptionsSchema.index({ telegramId: 1 }, { unique: true });
 const Subscriptions = mongoose.model('Subscriptions', subscriptionsSchema, 'subscriptions');
 
 const bot = new TelegramBot(process.env.bot_token, { polling: true });
@@ -156,7 +198,6 @@ bot.onText(/\/start/, async (msg) => {
     languageCode: msg.from.language_code,
     isBot: msg.from.is_bot,
     globalUserState: 'new',
-    createdAt: Date.now(),
   };
 
   // Локализация текстов
@@ -177,7 +218,6 @@ bot.onText(/\/start/, async (msg) => {
         telegramId: createdUser.telegramId,
         profileName: createdUser.firstName,
         userName: createdUser.userName,
-        createdAt: Date.now(),
         // Add other profile properties as needed
       };
       const createdProfile = await Profile.create(profileData);
@@ -186,10 +226,31 @@ bot.onText(/\/start/, async (msg) => {
       const userPhotoData = {
         user_id: createdUser._id,
         telegramId: createdUser.telegramId,
-        createdAt: Date.now(),
       };
       const createdUserPhoto = await UserPhoto.create(userPhotoData);
       console.log('UserPhoto collection created for the new user:', createdUserPhoto);
+
+      const initialSubscriptionData = {
+        user_id: createdUser._id,
+        telegramId: createdUser.telegramId,
+        subscriptionType: 'basic',
+        startDate: new Date(),
+        // endDate не требуется для базовой подписки, определяется условием в схеме
+        isActive: true,
+        paymentStatus: 'not_required',
+        features: {
+          unlimitedLikes: true,
+          seeWhoLikesYou: false,
+          additionalSearchFilters: false,
+          adFree: false,
+        },
+      };
+      try {
+        const createdSubscription = await Subscriptions.create(initialSubscriptionData);
+        console.log('Initial subscription created for the new user:', createdSubscription);
+      } catch (error) {
+        console.error('Error creating initial subscription for the new user:', error);
+      }
 
       // Отправка сообщения с кнопкой "Регистрация"
       bot.sendMessage(chatId, i18n.__('registration_message'), {
@@ -476,6 +537,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
     // Найти пользователя по идентификатору
     const existingUser = await User.findOne({ telegramId: userId });
     const userProfile = await Profile.findOne({ telegramId: userId });
+    const userSubscriptions = await Subscriptions.findOne({ telegramId: userId });
     if (existingUser) {i18n.setLocale(existingUser.languageCode)};
     await updateUserLastActivity(userId);
 
@@ -580,7 +642,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
 
             } else if (msg.text === BUTTONS.LIKES_YOU.en || msg.text === BUTTONS.LIKES_YOU.ru) {
               currentUserState.set(userId, 'likes_you');
-              await sendLikesYouProfiles(chatId, userId, userProfile);
+              await sendLikesYouProfiles(chatId, userId, userProfile, userSubscriptions);
             }
           break;
         case 'viewing_matches':
@@ -594,6 +656,9 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           }
           break;
         case 'likes_you':
+          const likesYouProfiles = await Profile.find({
+            likedProfiles: userProfile.telegramId,
+          });
           if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
             currentUserState.set(userId, 'main_menu');
             bot.sendMessage(chatId, i18n.__('main_menu_message'), {
@@ -601,6 +666,27 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                 keyboard: i18n.__('main_menu_buttons'),
                 resize_keyboard: true
               }});
+          } else if (msg.text === BUTTONS.LIKE.en || msg.text === BUTTONS.LIKE.ru) {
+            const firstOfLikesProfile = likesYouProfiles[0];
+
+            //Сохранить информацию о лайке
+            const likedCandidateProfileTelegramId = firstOfLikesProfile.telegramId;
+            userProfile.likedProfiles.push(likedCandidateProfileTelegramId);
+            await userProfile.save(); 
+
+            //Отправка уведомления о совпадении профилю [0]
+            await sendMatchNotification(firstOfLikesProfile, userProfile, i18n, User, existingUser);
+
+          } else if (msg.text === BUTTONS.DISLIKE.en || msg.text === BUTTONS.DISLIKE.ru) {
+            const firstOfLikesProfile = likesYouProfiles[0];
+            const dislikedProfileTelegramId = firstOfLikesProfile.telegramId;
+            userProfile.dislikedProfiles.push(dislikedProfileTelegramId);
+            await userProfile.save();
+
+            await sendLikesYouProfiles(chatId, userId, userProfile, userSubscriptions);
+
+          } if (msg.text === BUTTONS.CONTINUE_VIEWING_BUTTON.en || msg.text === BUTTONS.CONTINUE_VIEWING_BUTTON.ru) {
+            await sendLikesYouProfiles(chatId, userId, userProfile, userSubscriptions);
           }
           break;
         case 'settings_menu':
@@ -660,7 +746,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                   await sendMatchNotification(likedCandidateProfile, userProfile, i18n, User, existingUser);
                 } else {
                   //Отправить уведомление о лайке
-                  await sendLikeNotificationBlurPhoto(likedCandidateProfileTelegramId, userProfile, i18n, User, existingUser);
+                  await sendLikeNotificationPhoto(likedCandidateProfileTelegramId, userProfile, i18n, User, existingUser);
 
                   //Проверка остальных кандидатов
                   const nextCandidateProfile = await getCandidateProfile(Profile, userProfile);
@@ -990,19 +1076,23 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
   }
 });
 
-async function sendLikesYouProfiles(chatId, userId, userProfile) {
+// Поиск профиля, который поставил лайк текущему пользователю и вызов функции отправки профиля с индексом [0]
+async function sendLikesYouProfiles(chatId, userId, userProfile, userSubscriptions) {
   try {
     const likesYouProfiles = await Profile.find({
       likedProfiles: userProfile.telegramId,
+      telegramId: { $nin: [...userProfile.likedProfiles, ...userProfile.dislikedProfiles, ...userProfile.matches] },
     });
-    console.log(likesYouProfiles);
-    if (likesYouProfiles.length > 0) {
-      for (const likedProfile of likesYouProfiles) {
-        await sendCandidateProfile(chatId, likedProfile, userProfile);
-      }
+    if (likesYouProfiles && likesYouProfiles.length > 0) {
+      const firstOfLikesProfile = likesYouProfiles[0];
+        await sendCandidateProfile(chatId, firstOfLikesProfile, userProfile, userSubscriptions);
     } else {
       currentUserState.set(userId, 'main_menu');
-      await bot.sendMessage(chatId, i18n.__('no_likes_you_profiles_message'));
+      await bot.sendMessage(chatId, i18n.__('no_likes_you_profiles_message'), {
+        reply_markup: {
+          keyboard: i18n.__('main_menu_buttons'),
+          resize_keyboard: true
+        }});
     }
   } catch (error) {
     console.error('Error sending liked profiles:', error);
@@ -1072,73 +1162,6 @@ async function sendMatchProfile(chatId, matchProfile, userProfile, messageId) {
   }
 }
 
-async function sendMyProfile(chatId, userProfile) {
-  let aboutMeText = userProfile.aboutMe ? `<blockquote><i>${userProfile.aboutMe}</i></blockquote>` : '';
-  const genderText = userProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
-  bot.sendPhoto(chatId, userProfile.profilePhoto.photoPath, {
-    caption: `${userProfile.profileName}, ${userProfile.age}\n🏠${userProfile.location.locality}, ${userProfile.location.country}\n${genderText}\n${aboutMeText}`,
-    reply_markup: {
-      keyboard: i18n.__('myprofile_buttons'),
-      resize_keyboard: true
-    },
-    parse_mode: 'HTML',
-    protect_content: true,
-  });
-}
-
-async function sendMyUpdatedProfile(chatId, updatedProfile) {
-  let aboutMeText = updatedProfile.aboutMe ? `<blockquote><i>${updatedProfile.aboutMe}</i></blockquote>` : '';
-  const genderText = updatedProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
-  bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
-    caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n🏠${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${genderText}\n${aboutMeText}`,
-    reply_markup: {
-      keyboard: i18n.__('myprofile_buttons'),
-      resize_keyboard: true
-    },
-    parse_mode: 'HTML',
-    protect_content: true,
-  });
-}
-
-async function sendSearchSettings(chatId, userProfile) {
-  const preferenceGenderText = userProfile.preferences.preferredGender === 'male' ? i18n.__('preference_gender_selected_male') : i18n.__('preference_gender_selected_female');
-  bot.sendMessage(chatId, `${i18n.__('search_settings_message')}\n ${preferenceGenderText}\n ${i18n.__('age_range_message')} ${userProfile.preferences.ageRange.min}-${userProfile.preferences.ageRange.max}\n ${i18n.__('location_message')} ${userProfile.preferences.preferredLocation.locality}, ${userProfile.preferences.preferredLocation.country}`, {
-    reply_markup: {
-      keyboard: i18n.__('search_settings_buttons'),
-      resize_keyboard: true
-    },
-    parse_mode: 'HTML',
-  });
-}
-
-async function sendUpdatedSearchSettings(chatId, updatedProfile) {
-  const preferenceGenderText = updatedProfile.preferences.preferredGender === 'male' ? i18n.__('preference_gender_selected_male') : i18n.__('preference_gender_selected_female');
-  bot.sendMessage(chatId, `${i18n.__('search_settings_message')}\n ${preferenceGenderText}\n ${i18n.__('age_range_message')} ${updatedProfile.preferences.ageRange.min}-${updatedProfile.preferences.ageRange.max}\n ${i18n.__('location_message')} ${updatedProfile.preferences.preferredLocation.locality}, ${updatedProfile.preferences.preferredLocation.country}`, {
-    reply_markup: {
-      keyboard: i18n.__('search_settings_buttons'),
-      resize_keyboard: true
-    },
-    parse_mode: 'HTML',
-  });
-}
-
-// Функция отправки профиля кандидата
-async function sendCandidateProfile(chatId, candidateProfile, userProfile) {
-  let aboutMeText = candidateProfile.aboutMe ? `<blockquote><i>${candidateProfile.aboutMe}</i></blockquote>` : '';
-
-  const distance = await calculateAndReturnDistance(userProfile, candidateProfile);
-  const distanceText = distance !== null ? `\n📍 ${distance} ${i18n.__('km_away_message')}` : '';
-
-  await bot.sendPhoto(chatId, candidateProfile.profilePhoto.photoPath, {
-    caption: `${candidateProfile.profileName}, ${candidateProfile.age}\n${i18n.__('candidate_lives_message')}${candidateProfile.location.locality}, ${candidateProfile.location.country}${distanceText}\n${getLastActivityStatus(candidateProfile.lastActivity)}\n${aboutMeText}`,
-    reply_markup: {
-      keyboard: i18n.__('viewing_profiles_buttons'),
-      resize_keyboard: true },
-    parse_mode: 'HTML',
-    protect_content: true,
-  });
-}
-
 // Функция для отправки уведомления о Взаимном лайке
 async function sendMatchNotification(likedCandidateProfile, userProfile, i18n, User, existingUser) {
   
@@ -1190,23 +1213,94 @@ async function sendMatchNotification(likedCandidateProfile, userProfile, i18n, U
   }
 }
 
-// Функция для отправки уведомления о лайке
-async function sendLikeNotificationBlurPhoto(likedCandidateProfileTelegramId, userProfile, i18n, User, existingUser) {
+async function sendMyProfile(chatId, userProfile) {
+  let aboutMeText = userProfile.aboutMe ? `<blockquote><i>${userProfile.aboutMe}</i></blockquote>` : '';
+  const genderText = userProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
+  bot.sendPhoto(chatId, userProfile.profilePhoto.photoPath, {
+    caption: `${userProfile.profileName}, ${userProfile.age}\n🏠${userProfile.location.locality}, ${userProfile.location.country}\n${genderText}\n${aboutMeText}`,
+    reply_markup: {
+      keyboard: i18n.__('myprofile_buttons'),
+      resize_keyboard: true
+    },
+    parse_mode: 'HTML',
+    protect_content: true,
+  });
+}
 
-  const likedCandidateUser = await User.findOne({ telegramId: likedCandidateProfileTelegramId });
-  const likedCandidateLanguageCode = likedCandidateUser.languageCode;
+async function sendMyUpdatedProfile(chatId, updatedProfile) {
+  let aboutMeText = updatedProfile.aboutMe ? `<blockquote><i>${updatedProfile.aboutMe}</i></blockquote>` : '';
+  const genderText = updatedProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
+  bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
+    caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n🏠${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${genderText}\n${aboutMeText}`,
+    reply_markup: {
+      keyboard: i18n.__('myprofile_buttons'),
+      resize_keyboard: true
+    },
+    parse_mode: 'HTML',
+    protect_content: true,
+  });
+}
 
+async function sendSearchSettings(chatId, userProfile) {
+  const preferenceGenderText = userProfile.preferences.preferredGender === 'male' ? i18n.__('preference_gender_selected_male') : i18n.__('preference_gender_selected_female');
+  bot.sendMessage(chatId, `${i18n.__('search_settings_message')}\n ${preferenceGenderText}\n ${i18n.__('age_range_message')} ${userProfile.preferences.ageRange.min}-${userProfile.preferences.ageRange.max}\n ${i18n.__('location_message')} ${userProfile.preferences.preferredLocation.locality}, ${userProfile.preferences.preferredLocation.country}`, {
+    reply_markup: {
+      keyboard: i18n.__('search_settings_buttons'),
+      resize_keyboard: true
+    },
+    parse_mode: 'HTML',
+  });
+}
+
+async function sendUpdatedSearchSettings(chatId, updatedProfile) {
+  const preferenceGenderText = updatedProfile.preferences.preferredGender === 'male' ? i18n.__('preference_gender_selected_male') : i18n.__('preference_gender_selected_female');
+  bot.sendMessage(chatId, `${i18n.__('search_settings_message')}\n ${preferenceGenderText}\n ${i18n.__('age_range_message')} ${updatedProfile.preferences.ageRange.min}-${updatedProfile.preferences.ageRange.max}\n ${i18n.__('location_message')} ${updatedProfile.preferences.preferredLocation.locality}, ${updatedProfile.preferences.preferredLocation.country}`, {
+    reply_markup: {
+      keyboard: i18n.__('search_settings_buttons'),
+      resize_keyboard: true
+    },
+    parse_mode: 'HTML',
+  });
+}
+
+// Функция отправки профиля кандидата
+async function sendCandidateProfile(chatId, candidateProfile, userProfile, userSubscriptions) {
+  let aboutMeText = candidateProfile.aboutMe ? `<blockquote><i>${candidateProfile.aboutMe}</i></blockquote>` : '';
+
+  const distance = await calculateAndReturnDistance(userProfile, candidateProfile);
+  const distanceText = distance !== null ? `\n📍 ${distance} ${i18n.__('km_away_message')}` : '';
   try {
-    i18n.setLocale(likedCandidateLanguageCode);
-    bot.sendPhoto(likedCandidateProfileTelegramId, userProfile.profilePhoto.photoBlurredPath, {
-      caption: `${i18n.__('user_liked_message')}`,
-      //Отправить inline-кнопку (возможность просматривать лайки, реализация позже)
-      parse_mode: 'HTML',
-      protect_content: true,
-    });
-    i18n.setLocale(existingUser.languageCode);
+    const currentState = currentUserState.get(userProfile.telegramId);
+    const canViewProfile = currentState === 'viewing_profiles' || (currentState === 'likes_you' && userSubscriptions.isActive && userSubscriptions.subscriptionType === 'premium');
+    if (canViewProfile) {
+      await bot.sendPhoto(chatId, candidateProfile.profilePhoto.photoPath, {
+        caption: `${candidateProfile.profileName}, ${candidateProfile.age}\n${i18n.__('candidate_lives_message')}${candidateProfile.location.locality}, ${candidateProfile.location.country}${distanceText}\n${getLastActivityStatus(candidateProfile.lastActivity)}\n${aboutMeText}`,
+        reply_markup: {
+          keyboard: i18n.__('viewing_profiles_buttons'),
+          resize_keyboard: true },
+        parse_mode: 'HTML',
+        protect_content: true,
+      });
+    } else {
+      currentUserState.set(userProfile.telegramId, 'main_menu');
+      await bot.sendMessage(chatId, i18n.__('buy_premium_message'), {
+        reply_markup: {
+          keyboard: i18n.__('main_menu_buttons'),
+          resize_keyboard: true
+        }});
+      await bot.sendPhoto(chatId, candidateProfile.profilePhoto.photoBlurredPath, {
+        caption: `${candidateProfile.profileName}`,
+        reply_markup: {
+          inline_keyboard:  [
+            [{ text: i18n.__('buy_premium_button'), callback_data: 'buy_premium_button' }],
+          ],
+          resize_keyboard: true },
+        parse_mode: 'HTML',
+        protect_content: true,
+      });
+    }
   } catch (error) {
-    console.error('Error sending like notification:', error);
+    console.error('Error sending candidate profiles:', error);
   }
 }
 
@@ -1238,6 +1332,34 @@ async function getCandidateProfile(Profile, userProfile) {
   }
 }
 
+// Функция для отправки уведомления о лайке
+async function sendLikeNotificationPhoto(likedCandidateProfileTelegramId, userProfile, i18n, User, existingUser) {
+
+  const likedCandidateUser = await User.findOne({ telegramId: likedCandidateProfileTelegramId });
+  const likedCandidateLanguageCode = likedCandidateUser.languageCode;
+  const likedCandidateUserSubscription = await Subscriptions.findOne({ telegramId: likedCandidateProfileTelegramId });
+  const isPremiumUser = likedCandidateUserSubscription.isActive && likedCandidateUserSubscription.subscriptionType === 'premium';
+  try {
+    i18n.setLocale(likedCandidateLanguageCode);
+    if (isPremiumUser) {
+      bot.sendPhoto(likedCandidateProfileTelegramId, userProfile.profilePhoto.photoPath, {
+        caption: `${userProfile.profileName},${userProfile.age}\n${i18n.__('user_liked_premium_message')}`,
+        parse_mode: 'HTML',
+        protect_content: true,
+      });
+    } else {
+      bot.sendPhoto(likedCandidateProfileTelegramId, userProfile.profilePhoto.photoBlurredPath, {
+        caption: `${i18n.__('user_liked_message')}`,
+        //Отправить inline-кнопку (возможность просматривать лайки, реализация позже)
+        parse_mode: 'HTML',
+        protect_content: true,
+      });
+    }
+    i18n.setLocale(existingUser.languageCode);
+  } catch (error) {
+    console.error('Error sending like notification:', error);
+  }
+}
 
 async function handleAgeRangeInput(userId, input, chatId) {
   try {
