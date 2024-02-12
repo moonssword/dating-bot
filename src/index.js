@@ -103,15 +103,10 @@ bot.onText(/\/start/, async (msg) => {
       bot.sendMessage(chatId, i18n.__('registration_message'), {
         reply_markup: {
           inline_keyboard: [
-            [
-              {
-                text: i18n.__('registration_button'),
-                callback_data: 'registration',
-              },
-            ],
+            [{ text: i18n.__('registration_button'), callback_data: 'registration' }],
           ],
         },
-        parse_mode: 'HTML', // Установка типа парсинга сообщения
+        parse_mode: 'HTML',
       });
 
     } else {
@@ -925,6 +920,13 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             });
           break;
       }
+    } else if (existingUser && existingUser.globalUserState === 'blocked') {
+      const blockReasonMessage = `${i18n.__('block_reasons.'+ existingUser.blockReason)}\n${i18n.__('messages.blocked_account')} @helpBotName`;
+      bot.sendMessage(chatId, blockReasonMessage);
+
+    } else if (existingUser && existingUser.globalUserState === 'banned') {
+      const bannedMessage = `${i18n.__('messages.banned_account')}`;
+      bot.sendMessage(chatId, bannedMessage);
     }
   } catch (err) {
     console.error('Error retrieving user state:', err);

@@ -12,6 +12,7 @@ mongoose.connect('mongodb://localhost:27017/userdata')
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const adminChatId = '159762276'; // chatId администратора или техподдержки
 
 i18n.configure({
   locales: ['en', 'ru'],
@@ -65,8 +66,7 @@ bot.on('callback_query', async (callbackQuery) => {
         reply_markup: {
           inline_keyboard: [
             [{ text: i18n.__('buttons.confirm'), callback_data: 'confirm_delete' },
-            { text: i18n.__('buttons.cancel'), callback_data: 'cancel_delete' }],
-            [{ text: i18n.__('buttons.back'), callback_data: 'back_to_main' }]
+            { text: i18n.__('buttons.cancel'), callback_data: 'back_to_main' }],
           ]
         },
         parse_mode: 'HTML'
@@ -76,14 +76,52 @@ bot.on('callback_query', async (callbackQuery) => {
       await User.findOneAndUpdate({ telegramId: userId }, { $set: { globalUserState: 'deleted', blockReason: 'deleted_himself', isBlocked: true, blockDetails: {blockedAt: Date.now()} } });
       bot.sendMessage(msg.chat.id, i18n.__('messages.account_deleted'));
       break;
-    case 'cancel_delete':
-      bot.sendMessage(msg.chat.id, i18n.__('messages.deletion_cancelled'));
-      break;
+    // case 'cancel_delete':
+    //   bot.sendMessage(msg.chat.id, i18n.__('messages.deletion_cancelled'));
+    //   break;
 
     case 'unblock':
       const existingUser = await User.findOne({ telegramId: userId });
-      if (existingUser.isBlocked) {
+      const userProfile = await Profile.findOne({ telegramId: userId });
 
+      if (existingUser && existingUser.isBlocked && existingUser.globalUserState === 'blocked') {
+        const requestMessage = `User @${existingUser.userName} (${userId}) requests an unlock.\nReason: ${existingUser.blockReason}, from ${existingUser.blockDetails.blockedAt}.`;
+        bot.sendPhoto(adminChatId, userProfile.profilePhoto.photoPath, {
+          caption: requestMessage,
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: i18n.__('buttons.approve_unblock'), callback_data: 'approve_unblock' },
+                { text: i18n.__('buttons.reject_unblock'), callback_data: 'reject_unblock' }
+              ]
+            ]
+          }
+        });
+
+        bot.editMessageText(i18n.__('messages.unblock_request_received'), {
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: i18n.__('buttons.back'), callback_data: 'back_to_main' }]
+            ]
+          },
+          parse_mode: 'HTML'
+        });
+      } else if (existingUser && existingUser.isBlocked && existingUser.globalUserState === 'banned') {
+        //Логика обработки бана
+
+      } else {
+        bot.editMessageText(i18n.__('messages.not_blocked'), {
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: i18n.__('buttons.back'), callback_data: 'back_to_main' }]
+            ]
+          },
+          parse_mode: 'HTML'
+        });
       }
       break;
 

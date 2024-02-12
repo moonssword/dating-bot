@@ -33,38 +33,80 @@
 	"confirm_agreement_button": "✏️ Continue",
 	"main_menu_message": "Here you can see 🎯 new candidates, 💘mutual likes or change your profile settings\nDo you have any questions? Contact support @chatdavinci_bot",
 	"main_menu_buttons": [
-		["👥 Profiles","💘 Matches"],
-		["⚙️ Settings","💕 Likes you"]
+		[
+			"👥 Profiles",
+			"💘 Matches"
+		],
+		[
+			"⚙️ Settings",
+			"💕 Likes you"
+		]
 	],
 	"settings_menu_message": "👇 Select the menu section",
 	"settings_menu_buttons": [
-		["👤 My profile","🔍 Search settings"],
-		["⬅️ Back","🌐 Interface language"]
+		[
+			"👤 My profile",
+			"🔍 Search settings"
+		],
+		[
+			"⬅️ Back",
+			"🌐 Interface language"
+		]
 	],
 	"myprofile_buttons": [
-		["🔠 Name","📅 Date of birth"],
-		["📸 Photo","✍️ About me"],
-		["⬅️ Back","🏠 My location"]
+		[
+			"🔠 Name",
+			"📅 Date of birth"
+		],
+		[
+			"📸 Photo",
+			"✍️ About me"
+		],
+		[
+			"⬅️ Back",
+			"🏠 My location"
+		]
 	],
 	"search_settings_message": "🔎 <b>Discovery settings</b>\n",
 	"search_settings_buttons": [
-		["🗺️ Location","🚻 Gender"],
-		["⬅️ Back","🔢 Age range"]
+		[
+			"🗺️ Location",
+			"🚻 Gender"
+		],
+		[
+			"⬅️ Back",
+			"🔢 Age range"
+		]
 	],
 	"user_profiles_message": "Any Profile photo with info",
 	"viewing_profiles_buttons": [
-		["❌","💚"],
-		["⬅️ Back"]
+		[
+			"❌",
+			"💚"
+		],
+		[
+			"⬅️ Back"
+		]
 	],
 	"back_button": [
-		["⬅️ Back"]
+		[
+			"⬅️ Back"
+		]
 	],
 	"viewing_matches_buttons": [
-		["⏪","⛔"],
-		["⬅️ Back","ℹ️"]
+		[
+			"⏪",
+			"⛔"
+		],
+		[
+			"⬅️ Back",
+			"ℹ️"
+		]
 	],
 	"viewing_match_buttons": [
-		["⏩ Continue viewing"]
+		[
+			"⏩ Continue viewing"
+		]
 	],
 	"enter_profilename_message": "What is your name?",
 	"enter_aboutme_message": "✍️ Write a few lines about yourself",
@@ -101,5 +143,19 @@
 	"no_previous_matches_message": "⚠️ No more matches available",
 	"no_likes_you_profiles_message": "💔 Sorry, but there are currently no profiles that have liked you. Keep swiping and you may find a match soon!",
 	"buy_premium_button": "🔐 Unlock",
-	"buy_premium_message": "Unlock Your Admirers! 🌟\nDiscover who's interested in you by upgrading to our Premium subscription. See all the profiles that have liked you and connect with them instantly. Don't miss out on the chance to meet someone special. Upgrade now and start exploring your admirers!"
+	"buy_premium_message": "Unlock Your Admirers! 🌟\nDiscover who's interested in you by upgrading to our Premium subscription. See all the profiles that have liked you and connect with them instantly. Don't miss out on the chance to meet someone special. Upgrade now and start exploring your admirers!",
+	"block_reasons": {
+		"spam": "Your account has been blocked due to spamming.",
+		"offensive_behavior": "Your account has been blocked due to offensive behavior.",
+		"inappropriate_content": "Your account has been blocked due to posting inappropriate content.",
+		"fraud": "Your account has been blocked due to fraudulent activities.",
+		"impersonation": "Your account has been blocked due to impersonation.",
+		"community_rules_violation": "Your account has been blocked due to violation of community rules.",
+		"inactivity": "Your account has been blocked due to inactivity.",
+		"suspected_hacking": "Your account has been blocked due to suspected hacking activities."
+	},
+	"messages": {
+		"banned_account": "Your account has been banned for repeated violations of the service's usage rules.",
+		"blocked_account": "For assistance, please contact support."
+	}
 }
