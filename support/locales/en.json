@@ -1,0 +1,36 @@
+{
+	"block_reasons": {
+		"spam": "Your account has been blocked due to spamming.",
+		"offensive_behavior": "Your account has been blocked due to offensive behavior.",
+		"inappropriate_content": "Your account has been blocked due to posting inappropriate content.",
+		"fraud": "Your account has been blocked due to fraudulent activities.",
+		"impersonation": "Your account has been blocked due to impersonation.",
+		"community_rules_violation": "Your account has been blocked due to violation of community rules.",
+		"inactivity": "Your account has been blocked due to inactivity.",
+		"suspected_hacking": "Your account has been blocked due to suspected hacking activities."
+	},
+	"buttons": {
+		"unblock": "🔐 Unblock",
+		"feedback": "🗣️ Feedback",
+		"subscription": "🎫 Subscription",
+		"contact_support": "🤖 Contact Support",
+		"delete_account": "🗑️ Delete Account",
+		"confirm": "✅ Confirm",
+		"cancel": "🚫 Cancel",
+		"back": "⬅️ Back"
+	},
+	"messages": {
+		"main": "Welcome to the support service of @botname. How can I assist you?\nFeel free to use one of the predefined responses or directly message the operator detailing your issue, including any relevant screenshots.\nPlease note that requests without a problem description will not be processed.",
+		"delete_account": "Your account has been marked for deletion and blocked.",
+		"current_subscription": "Current subscription: {{subscriptionType}}\nStatus: {{status}}\nValidity: {{validity}}",
+		"unblock_request_sent": "Your unblock request has been sent to support.",
+		"describe_your_problem": "Please describe your problem and attach screenshots if necessary. We will try to assist you as soon as possible.",
+		"enter_feedback": "Please enter your feedback or suggestion. We value your input!",
+		"thank_you_for_feedback": "Thank you for your feedback!",
+		"confirm_delete_account": "Are you sure you want to delete your account? This action cannot be undone.",
+		"account_deleted": "Your account has been successfully deleted.",
+		"deletion_cancelled": "Account deletion has been cancelled."
+	},
+	"Active": "Active",
+	"Indefinitely": "Indefinitely"
+}

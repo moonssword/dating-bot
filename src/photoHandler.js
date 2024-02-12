@@ -9,7 +9,6 @@ import { dirname } from 'path';
 import fetch from 'node-fetch';
 import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
 import sharp from 'sharp';
 
 const __filename = fileURLToPath(import.meta.url);

@@ -31,7 +31,7 @@
 	"confirm_agreement_message": "📝 By clicking Continue, you confirm\n that you accept the User Agreement and the Privacy\n Policy",
 	"confirm_agreement_link": "📄 Read agreement",
 	"confirm_agreement_button": "✏️ Continue",
-	"main_menu_message": "Here you can see 🎯 new candidates, 💘mutual likes or change your profile settings",
+	"main_menu_message": "Here you can see 🎯 new candidates, 💘mutual likes or change your profile settings\nDo you have any questions? Contact support @chatdavinci_bot",
 	"main_menu_buttons": [
 		["👥 Profiles","💘 Matches"],
 		["⚙️ Settings","💕 Likes you"]

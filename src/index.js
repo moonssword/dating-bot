@@ -2,6 +2,7 @@ import 'dotenv/config';
 import i18n from 'i18n';
 import TelegramBot from 'node-telegram-bot-api';
 import mongoose from 'mongoose';
+import { User, Profile, UserPhoto, Subscriptions } from './models.js';
 import { getFromLocation, getFromCityName, calculateAndReturnDistance } from './locationHandler.js';
 import { handleBirthday } from './birthdayHandler.js';
 import { handlePhoto } from './photoHandler.js';
@@ -29,160 +30,6 @@ i18n.configure({
 //  defaultLocale: 'ru', // Язык по умолчанию
   objectNotation: true, // Использование объектной нотации для строк
 });
-
-// Схема пользователя
-const userSchema = new mongoose.Schema({
-  telegramId: { type: Number, int64: true },
-  userName: String,
-  firstName: String,
-  lastName: String,
-  languageCode: String,
-  globalUserState: String,
-  isBot: Boolean,
-}, { versionKey: false, timestamps: true  });
-// Модель пользователя
-userSchema.index({ telegramId: 1 }, { unique: true });
-const User = mongoose.model('User', userSchema, 'users');
-
-// Схема профиля
-const profileSchema = new mongoose.Schema({
-  user_id: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-  },
-  telegramId: { type: Number, int64: true },
-  userName: String,
-  profileName: String,
-  gender: String,
-  birthday: Number,
-  age: Number,
-  interests: String,
-  aboutMe: String,
-  lastActivity: Number,
-  preferences: {
-    preferredGender: String,
-    ageRange: {
-      min: Number,
-      max: Number,
-    },
-    preferredLocation: {
-      locality: String,
-      country: String,
-    },
-  },
-  profilePhoto: {
-    photo_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'UserPhoto',
-    },
-    photoPath: String,
-    photoBlurredPath: String,
-    uploadDate: Date,
-  },
-  location: {
-    locality: String,
-    display_name: String,
-    addresstype: String,
-    state: String,
-    country: String,
-    sentGeolocation: Boolean,
-    latitude: Number, //location: { type: "Point", coordinates: [longitude, latitude] }, В дальнейшем для указания расстояния до кандидата
-    longitude: Number,
-  },
-  likedProfiles: [{
-    type: Number,
-    ref: 'Profile',
-    int64: true,
-  }],
-  dislikedProfiles: [{
-    type: Number,
-    ref: 'Profile',
-    int64: true,
-  }],
-  matches: [{
-    type: Number,
-    ref: 'Profile',
-    int64: true,
-  }],
-  viewingMatchIndex: Number,
-  viewingLikesYouIndex: Number,
-}, { versionKey: false, timestamps: true  });
-// Модель профиля
-profileSchema.index({ telegramId: 1 }, { unique: true });
-const Profile = mongoose.model('Profile', profileSchema, 'profiles');
-
-//Схема фотографий профиля
-const userPhotoSchema = new mongoose.Schema({
-  user_id: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-  },
-  photos: [{
-    filename: String,
-    path: String,
-    blurredPath: String,
-    size: Number,
-    uploadDate: { type: Date, default: Date.now },
-    verifiedPhoto: { type: Boolean, default: false },
-  }]
-}, { versionKey: false, timestamps: true  });
-//Модель фотографий профиля
-const UserPhoto = mongoose.model('UserPhoto', userPhotoSchema, 'usersPhotos');
-
-const subscriptionsSchema = new mongoose.Schema({
-  user_id: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
-  telegramId: { type: Number, int64: true },
-  subscriptionType: {
-    type: String,
-    enum: ['basic', 'plus', 'premium'],
-    default: 'basic',
-  },
-  startDate: {
-    type: Date,
-    default: Date.now,
-  },
-  endDate: {
-    type: Date,
-    required: function() {
-      return this.subscriptionType !== 'basic';
-    }
-  },
-  isActive: {
-    type: Boolean,
-    default: false,
-  },
-  paymentStatus: {
-    type: String,
-    enum: ['pending', 'completed', 'failed', 'not_required'],
-    default: function() {
-      return this.subscriptionType === 'basic' ? 'not_required' : 'pending';
-    }
-  },
-  features: {
-    unlimitedLikes: {
-      type: Boolean,
-      default: true,
-    },
-    seeWhoLikesYou: {
-      type: Boolean,
-      default: false,
-    },
-    additionalSearchFilters: {
-      type: Boolean,
-      default: false,
-    },
-    adFree: {
-      type: Boolean,
-      default: false,
-    },
-  },
-}, { versionKey: false, timestamps: true });
-subscriptionsSchema.index({ telegramId: 1 }, { unique: true });
-const Subscriptions = mongoose.model('Subscriptions', subscriptionsSchema, 'subscriptions');
 
 const bot = new TelegramBot(process.env.bot_token, { polling: true });
 
@@ -491,7 +338,8 @@ bot.on('callback_query', async (callbackQuery) => {
         reply_markup: {
           keyboard: i18n.__('main_menu_buttons'),
           resize_keyboard: true
-        }}
+        },
+        parse_mode: 'HTML',}
       )
     } else if (buttonsViewMatches.includes(data)) {
       const matchesProfiles = await getMatchesProfiles(userProfile);
@@ -652,7 +500,9 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
               reply_markup: {
                 keyboard: i18n.__('main_menu_buttons'),
                 resize_keyboard: true
-              }});
+              },
+              parse_mode: 'HTML',
+            });
           }
           break;
         case 'likes_you':
@@ -665,7 +515,9 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
               reply_markup: {
                 keyboard: i18n.__('main_menu_buttons'),
                 resize_keyboard: true
-              }});
+              },
+              parse_mode: 'HTML',
+            });
           } else if (msg.text === BUTTONS.LIKE.en || msg.text === BUTTONS.LIKE.ru) {
             const firstOfLikesProfile = likesYouProfiles[0];
 
@@ -702,7 +554,9 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
               reply_markup: {
                 keyboard: i18n.__('main_menu_buttons'),
                 resize_keyboard: true
-              }});
+              },
+              parse_mode: 'HTML',
+            });
           } else if (msg.text === BUTTONS.INTERFACE_LANGUAGE.en || msg.text === BUTTONS.INTERFACE_LANGUAGE.ru) {
             currentUserState.set(userId, 'select_language');
             bot.sendMessage(chatId, i18n.__('select_language_message'), {
@@ -723,7 +577,9 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
               reply_markup: {
                 keyboard: i18n.__('main_menu_buttons'),
                 resize_keyboard: true
-              }});
+              },
+              parse_mode: 'HTML',
+            });
           } else if (msg.text === BUTTONS.LIKE.en || msg.text === BUTTONS.LIKE.ru) {
 
             const candidateProfile = await getCandidateProfile(Profile, userProfile);
