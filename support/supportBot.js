@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { User, Profile, UserPhoto, Subscriptions } from '../src/models.js';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { URLS, BOT_NAMES } from '../src/constants.js';
 
 mongoose.connect('mongodb://localhost:27017/userdata')
 .then(() => console.log('Connected to MongoDB support'))
@@ -52,11 +53,12 @@ bot.onText(/\/start/, async (msg) => {
 
 // Пример обработки инлайн кнопок для блокировки/разблокировки
 bot.on('callback_query', async (callbackQuery) => {
-  const action = callbackQuery.data;
+  const [action, targetUserId] = callbackQuery.data.split(':');
   const msg = callbackQuery.message;
   const userId = callbackQuery.from.id;
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
+  const adminUserId = callbackQuery.from.id;
 
   switch (action) {
     case 'delete_account':
@@ -76,9 +78,6 @@ bot.on('callback_query', async (callbackQuery) => {
       await User.findOneAndUpdate({ telegramId: userId }, { $set: { globalUserState: 'deleted', blockReason: 'deleted_himself', isBlocked: true, blockDetails: {blockedAt: Date.now()} } });
       bot.sendMessage(msg.chat.id, i18n.__('messages.account_deleted'));
       break;
-    // case 'cancel_delete':
-    //   bot.sendMessage(msg.chat.id, i18n.__('messages.deletion_cancelled'));
-    //   break;
 
     case 'unblock':
       const existingUser = await User.findOne({ telegramId: userId });
@@ -91,7 +90,7 @@ bot.on('callback_query', async (callbackQuery) => {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: i18n.__('buttons.approve_unblock'), callback_data: 'approve_unblock' },
+                { text: i18n.__('buttons.approve_unblock'), callback_data: `approve_unblock:${userId}` },
                 { text: i18n.__('buttons.reject_unblock'), callback_data: 'reject_unblock' }
               ]
             ]
@@ -123,6 +122,17 @@ bot.on('callback_query', async (callbackQuery) => {
           parse_mode: 'HTML'
         });
       }
+      break;
+    case 'approve_unblock':
+      await User.findOneAndUpdate({ telegramId: targetUserId }, { $set: { globalUserState: 'active', isBlocked: false, blockReason: '', } });
+      await UserPhoto.findOneAndUpdate({ telegramId: targetUserId }, { $set: { rejectCount: 0 } });
+      bot.sendMessage(chatId, i18n.__('messages.user_unblocked'), {parse_mode: 'HTML'} );
+      bot.sendMessage(targetUserId, i18n.__('messages.account_unblocked_advice'), {parse_mode: 'HTML'} );
+      break;
+
+    case 'reject_unblock':
+      bot.sendMessage(chatId, i18n.__('messages.unblock_request_denied'), {parse_mode: 'HTML'} );
+      bot.sendMessage(targetUserId, `${i18n.__('messages.unblock_denial_advice')} ${BOT_NAMES.SUPPORT}`, {parse_mode: 'HTML', disable_web_page_preview: true} );
       break;
 
     case 'subscription':

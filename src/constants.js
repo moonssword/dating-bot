@@ -1,4 +1,10 @@
 // constants.js
+
+const BOT_NAMES = {
+  SUPPORT: "chatdavinci_bot",
+  ADMIN_ID: "",
+}
+  
 const BUTTONS = {
   MY_LOCATION: {
     en: '🏠 My location',
@@ -93,8 +99,15 @@ const BUTTONS = {
     ru: '❌'
   },
   };
-  
+
+const URLS = {
+  AGREEMENT: 'https://telegra.ph/Afreement-01-11',
+  S3: 'https://dating-storage.s3.aeza.cloud/',
+};
+
   export {
-    BUTTONS
+    BUTTONS,
+    BOT_NAMES,
+    URLS
   };
   

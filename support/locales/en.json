@@ -33,7 +33,11 @@
 		"confirm_delete_account": "Are you sure you want to delete your account? This action cannot be undone.",
 		"account_deleted": "Your account has been successfully deleted.",
 		"deletion_cancelled": "Account deletion has been cancelled.",
-		"banned_account": "Your account has been banned for repeated violations of the service's usage rules."
+		"banned_account": "Your account has been banned for repeated violations of the service's usage rules.",
+		"user_unblocked": "The user has been unblocked.",
+		"account_unblocked_advice": "Your account has been unblocked. To avoid future blocks, we recommend reviewing the <a href='https://telegra.ph/Afreement-01-11'>User Agreement</a>.",
+		"unblock_request_denied": "The unblock request has been denied.",
+		"unblock_denial_advice": "Your request to unblock your account has been denied. For further information, please contact support."
 	},
 	"Active": "Active",
 	"Indefinitely": "Indefinitely"

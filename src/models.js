@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
       },
     blockReason: {
         type: String,
-        enum: ['spam', 'offensive_behavior', 'inappropriate_content', 'fraud', 'impersonation', 'community_rules_violation', 'inactivity', 'suspected_hacking', 'deleted_himself'],
+        enum: ['spam', 'offensive_behavior', 'inappropriate_content', 'fraud', 'impersonation', 'community_rules_violation', 'inactivity', 'suspected_hacking', 'deleted_himself', 'face_not_detected'],
         default: '',
       },
     isBlocked: { type: Boolean, default: false },
@@ -105,6 +105,8 @@ const userSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
+    telegramId: { type: Number, int64: true },
+    rejectCount: Number,
     photos: [{
       filename: String,
       path: String,
@@ -114,6 +116,7 @@ const userSchema = new mongoose.Schema({
       verifiedPhoto: { type: Boolean, default: false },
     }]
   }, { versionKey: false, timestamps: true  });
+  userPhotoSchema.index({ telegramId: 1 }, { unique: true });
   //Модель фотографий профиля
   export const UserPhoto = mongoose.model('UserPhoto', userPhotoSchema, 'usersPhotos');
   

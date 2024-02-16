@@ -10,6 +10,7 @@ import fetch from 'node-fetch';
 import AWS from 'aws-sdk';
 import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
+import { BOT_NAMES, URLS } from './constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -80,7 +81,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
         const buffer = Buffer.from(arrayBuffer);
 
         // Сохранение фотографии в S3
-        const photoFilename = `${uuidv4()}.jpg`;
+        const photoFilename = `${userId}_${Date.now()}.jpg`;
         const originalPhotoPath = await uploadPhotoToS3(buffer, photoFilename);
 
         // Загрузка и Распознавание лиц на изображении
@@ -90,6 +91,24 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
         if (detections.length === 0) {
             // Если на фото нет лица
             const rejectionMessage = await bot.sendMessage(chatId, i18n.__('photo_rejected_message'));
+            // Перемещение фотографии в папку /rejected
+            const rejectedPhotoPath = await movePhotoToRejected(buffer, photoFilename);
+
+            // Увеличение счетчика отклоненных фотографий
+            let userPhoto = await UserPhoto.findOne({ user_id: existingUser._id });
+            if (!userPhoto) {
+                userPhoto = new UserPhoto({ user_id: existingUser._id, telegramId: userId, photos: [], rejectCount: 0 });
+            }
+            userPhoto.rejectCount++;
+            await userPhoto.save();
+
+            // Если количество отклоненных фотографий достигло 10, вывести сообщение пользователю
+            if (userPhoto.rejectCount === 10) {
+                await User.findOneAndUpdate({ telegramId: userId }, { $set: { globalUserState: 'blocked', blockReason: 'face_not_detected', isBlocked: true, blockDetails: {blockedAt: Date.now()} } });
+                await bot.sendMessage(chatId, `${i18n.__('messages.photo_rejected_multiple_times')} @${BOT_NAMES.SUPPORT}`, {reply_markup: {remove_keyboard: true}});
+                currentUserState.set(userId, 'main_menu');
+                return;
+            }
 
             // Удаление сообщения о том, что фотография обрабатывается
             if (processingMessage.message_id) {
@@ -117,7 +136,8 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
             }
             // Генерация и загрузка размытой версии фото
             const blurredBuffer = await blurImage(buffer);
-            const blurredPhotoPath = await uploadPhotoToS3(blurredBuffer, `${photoFilename}_b.jpg`);
+            const blurredPhotoFilename = photoFilename.replace(/\.jpg$/, '_b.jpg');
+            const blurredPhotoPath = await uploadPhotoToS3(blurredBuffer, blurredPhotoFilename);
 
             // Добавление фотографии в массив
             userPhoto.photos.push({
@@ -125,7 +145,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
                 path: originalPhotoPath,
                 blurredPath: blurredPhotoPath,
                 size: buffer.length,
-                uploadDate: new Date(),
+                uploadDate: Date.now(),
                 verifiedPhoto: detections.length > 0, // true если фотография прошла проверку
             });
             await userPhoto.save();
@@ -138,7 +158,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
                     photo_id: lastPhotoId,
                     photoPath: originalPhotoPath,
                     photoBlurredPath: blurredPhotoPath,
-                    uploadDate: new Date(),
+                    uploadDate: Date.now(),
                     },
                 },
                 { new: true }
@@ -156,7 +176,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
                 setTimeout(async () => {
                     // Удаление сообщения photo_verified_message
                     try {
-                        const agreementLink = 'https://telegra.ph/Afreement-01-11'; // Ссылка на соглашение
+                        const agreementLink = URLS.AGREEMENT; // Ссылка на соглашение
                         await bot.deleteMessage(chatId, verifiedMessage.message_id);
                         await bot.sendMessage(chatId, i18n.__('confirm_agreement_message'), {
                             reply_markup: {
@@ -214,7 +234,7 @@ async function uploadPhotoToS3(buffer, filename) {
     try {
         await s3.upload(s3Params).promise();
         console.log('Photo successfully uploaded to S3');
-        return `https://dating-storage.s3.aeza.cloud/${s3Key}`;
+        return `${URLS.S3}${s3Key}`;
     } catch (error) {
         console.error('Error uploading photo to S3:', error);
         throw new Error('Error uploading photo to S3');
@@ -232,5 +252,25 @@ async function blurImage(buffer) {
     } catch (error) {
         console.error('Error blurring image:', error);
         return null;
+    }
+}
+
+// Функция для перемещения фотографии в папку /rejected на сервер S3
+async function movePhotoToRejected(buffer, filename) {
+    const s3Key = `photos/rejected/${filename}`;
+    const s3Params = {
+        Bucket: 'dating-storage',
+        Key: s3Key,
+        Body: buffer,
+        ContentType: 'image/jpeg',
+        ACL: 'public-read', // Настройте ACL по вашим требованиям
+    };
+
+    try {
+        await s3.upload(s3Params).promise();
+        return `${URLS.S3}${s3Key}`;
+    } catch (error) {
+        console.error('Error moving photo to /rejected folder on S3:', error);
+        throw new Error('Error moving photo to /rejected folder on S3');
     }
 }

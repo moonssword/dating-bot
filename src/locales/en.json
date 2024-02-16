@@ -152,10 +152,12 @@
 		"impersonation": "Your account has been blocked due to impersonation.",
 		"community_rules_violation": "Your account has been blocked due to violation of community rules.",
 		"inactivity": "Your account has been blocked due to inactivity.",
-		"suspected_hacking": "Your account has been blocked due to suspected hacking activities."
+		"suspected_hacking": "Your account has been blocked due to suspected hacking activities.",
+		"face_not_detected": "Your account has been blocked for repeatedly trying to upload a photo that does not comply with the service's policy."
 	},
 	"messages": {
 		"banned_account": "Your account has been banned for repeated violations of the service's usage rules.",
-		"blocked_account": "For assistance, please contact support."
+		"blocked_account": "For assistance, please contact support",
+		"photo_rejected_multiple_times": "Your account has been blocked for repeatedly trying to upload a photo that does not comply with the service's policy. Please contact support"
 	}
 }

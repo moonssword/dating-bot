@@ -8,7 +8,7 @@ import { handleBirthday } from './birthdayHandler.js';
 import { handlePhoto } from './photoHandler.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { BUTTONS } from './constants.js';
+import { BOT_NAMES, BUTTONS, URLS } from './constants.js';
 import moment from 'moment';
 
 process.env.NTBA_FIX_319 = 1;
@@ -73,6 +73,7 @@ bot.onText(/\/start/, async (msg) => {
       const userPhotoData = {
         user_id: createdUser._id,
         telegramId: createdUser.telegramId,
+        rejectCount: 0,
       };
       const createdUserPhoto = await UserPhoto.create(userPhotoData);
       console.log('UserPhoto collection created for the new user:', createdUserPhoto);
@@ -921,7 +922,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           break;
       }
     } else if (existingUser && existingUser.globalUserState === 'blocked') {
-      const blockReasonMessage = `${i18n.__('block_reasons.'+ existingUser.blockReason)}\n${i18n.__('messages.blocked_account')} @helpBotName`;
+      const blockReasonMessage = `${i18n.__('block_reasons.'+ existingUser.blockReason)}\n${i18n.__('messages.blocked_account')} @${BOT_NAMES.SUPPORT}`;
       bot.sendMessage(chatId, blockReasonMessage);
 
     } else if (existingUser && existingUser.globalUserState === 'banned') {
