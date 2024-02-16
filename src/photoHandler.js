@@ -106,7 +106,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
             if (userPhoto.rejectCount === 10) {
                 await User.findOneAndUpdate({ telegramId: userId }, { $set: { globalUserState: 'blocked', blockReason: 'face_not_detected', isBlocked: true, blockDetails: {blockedAt: Date.now()} } });
                 await bot.sendMessage(chatId, `${i18n.__('messages.photo_rejected_multiple_times')} @${BOT_NAMES.SUPPORT}`, {reply_markup: {remove_keyboard: true}});
-                currentUserState.set(userId, 'main_menu');
+                currentUserState.delete(userId);
                 return;
             }
 

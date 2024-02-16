@@ -59,7 +59,9 @@ bot.on('callback_query', async (callbackQuery) => {
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
   const adminUserId = callbackQuery.from.id;
-
+  const existingUser = await User.findOne({ telegramId: userId });
+  i18n.setLocale(existingUser.languageCode);
+ try {
   switch (action) {
     case 'delete_account':
       bot.editMessageText(i18n.__('messages.confirm_delete_account'), {
@@ -153,13 +155,19 @@ bot.on('callback_query', async (callbackQuery) => {
       });
       break;
 
+    // Обработка запросов в техподдержку
     case 'contact_support':
-      // Логика для связи со спеуиалистом техподдержки
-        break;
+      bot.sendMessage(chatId, i18n.__('messages.request_support'), {
+        reply_markup: { force_reply: true } // Принудительный ответ, чтобы получить текст обращения
+      });
+      break;
 
+    // Обработка отзывов
     case 'feedback':
-      // Логика для обратной связи
-        break;
+      bot.sendMessage(chatId, i18n.__('messages.request_feedback'), {
+        reply_markup: { force_reply: true } // Принудительный ответ, чтобы получить текст отзыва
+      });
+      break;
 
     case 'back_to_main':
       bot.editMessageText(i18n.__('messages.main'), {
@@ -177,19 +185,44 @@ bot.on('callback_query', async (callbackQuery) => {
         parse_mode: 'HTML'
       });
       break;
-  }
+  } 
+ } catch (err) {
+  console.error('Error callback processing:', err);
+  bot.sendMessage(adminChatId, 'Произошла ошибка при обработке колбэк.');
+}
 });
 
-bot.on('message', (msg) => {
-  if (msg.text === 'Обратная связь') {
-    // Логика для обратной связи
-    bot.sendMessage(msg.chat.id, "Оставьте ваш отзыв:", {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "Написать оператору", callback_data: 'contact_support' }]
-        ]
+// Пример обработки принудительного ответа
+bot.on('message', async (msg) => {
+  const userId = msg.from.id;
+  const chatId = msg.chat.id;
+  try {
+    if (msg.reply_to_message && msg.reply_to_message.text.includes(i18n.__('messages.request_feedback'))) {
+      // Проверяем длину сообщения
+      if (msg.text.length > 1000) {
+        bot.sendMessage(chatId, i18n.__('messages.feedback_too_long'));
+        return;
       }
-    });
+  
+      // Сохраняем отзыв в базе данных
+      await User.findOneAndUpdate(
+        { telegramId: userId },
+        { $push: { feedback: { text: msg.text, date: Date.now() } } },
+        { upsert: true, new: true }
+      )
+      bot.sendMessage(adminChatId, `New feedback received from ${userId}:\n${msg.text}`);
+      bot.sendMessage(chatId, i18n.__('messages.feedback_thanks'));
+    }
+  
+    if (msg.reply_to_message && msg.reply_to_message.text.includes(i18n.__('messages.request_support'))) {
+      // Пересылаем сообщение в чат техподдержки
+      bot.forwardMessage(adminChatId, chatId, msg.message_id);
+  
+      // Отправляем подтверждение пользователю
+      bot.sendMessage(chatId, i18n.__('messages.support_request_received'));
+    }
+  } catch (err) {
+    console.error('Error msg:', err);
+    bot.sendMessage(adminChatId, 'Произошла ошибка при обработке сообщения.');
   }
 });
-

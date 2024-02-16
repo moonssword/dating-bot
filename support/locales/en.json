@@ -10,7 +10,7 @@
 		"suspected_hacking": "Your account has been blocked due to suspected hacking activities."
 	},
 	"buttons": {
-		"unblock": "🔐 Unblock",
+		"unblock": "🔐 Unblock Account",
 		"feedback": "🗣️ Feedback",
 		"subscription": "🎫 Subscription",
 		"contact_support": "🤖 Contact Support",
@@ -22,7 +22,7 @@
 		"reject_unblock": "❌ Reject"
 	},
 	"messages": {
-		"main": "Welcome to the support service of @botname. How can I assist you?\nFeel free to use one of the predefined responses or directly message the operator detailing your issue, including any relevant screenshots.\nPlease note that requests without a problem description will not be processed.",
+		"main": "Welcome to the support service @botname\nYou can choose one of the ready-made response options or write to the operator.",
 		"delete_account": "Your account has been marked for deletion and blocked.",
 		"current_subscription": "Current subscription: {{subscriptionType}}\nStatus: {{status}}\nValidity: {{validity}}",
 		"unblock_request_received": "Your request to unblock your account has been received and will be reviewed.",
@@ -37,7 +37,12 @@
 		"user_unblocked": "The user has been unblocked.",
 		"account_unblocked_advice": "Your account has been unblocked. To avoid future blocks, we recommend reviewing the <a href='https://telegra.ph/Afreement-01-11'>User Agreement</a>.",
 		"unblock_request_denied": "The unblock request has been denied.",
-		"unblock_denial_advice": "Your request to unblock your account has been denied. For further information, please contact support."
+		"unblock_denial_advice": "Your request to unblock your account has been denied. For further information, please contact support.",
+		"request_support": "Please describe your problem in detail and attach screenshots if necessary.\nPlease note that inquiries without a problem description will not be considered.",
+		"support_request_received": "Your request has been received. A support representative will contact you shortly.",
+		"request_feedback": "Please provide your feedback. Your opinion matters to us.",
+		"feedback_thanks": "Thank you for your feedback!",
+		"feedback_too_long": "Your feedback exceeds the maximum length of 1000 characters."
 	},
 	"Active": "Active",
 	"Indefinitely": "Indefinitely"

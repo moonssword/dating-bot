@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
       },
     blockReason: {
         type: String,
-        enum: ['spam', 'offensive_behavior', 'inappropriate_content', 'fraud', 'impersonation', 'community_rules_violation', 'inactivity', 'suspected_hacking', 'deleted_himself', 'face_not_detected'],
+        enum: ['spam', 'offensive_behavior', 'inappropriate_content', 'fraud', 'impersonation', 'community_rules_violation', 'inactivity', 'deleted_himself', 'face_not_detected'],
         default: '',
       },
     isBlocked: { type: Boolean, default: false },
@@ -24,6 +24,7 @@ const userSchema = new mongoose.Schema({
         notes: String,
       },
     isBot: Boolean,
+    feedback: { text: String, date: Date },
   }, { versionKey: false, timestamps: true  });
   // Модель пользователя
   userSchema.index({ telegramId: 1 }, { unique: true });
