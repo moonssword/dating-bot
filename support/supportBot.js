@@ -13,7 +13,6 @@ mongoose.connect('mongodb://localhost:27017/userdata')
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const adminChatId = '159762276'; // chatId администратора или техподдержки
 
 i18n.configure({
   locales: ['en', 'ru'],
@@ -51,7 +50,6 @@ bot.onText(/\/start/, async (msg) => {
   }
 });
 
-// Пример обработки инлайн кнопок для блокировки/разблокировки
 bot.on('callback_query', async (callbackQuery) => {
   const [action, targetUserId] = callbackQuery.data.split(':');
   const msg = callbackQuery.message;
@@ -85,9 +83,9 @@ bot.on('callback_query', async (callbackQuery) => {
       const existingUser = await User.findOne({ telegramId: userId });
       const userProfile = await Profile.findOne({ telegramId: userId });
 
-      if (existingUser && existingUser.isBlocked && existingUser.globalUserState === 'blocked') {
+      if (existingUser && existingUser.isBlocked && existingUser.globalUserState === 'blocked' || existingUser.globalUserState === 'rejected') {
         const requestMessage = `User @${existingUser.userName} (${userId}) requests an unlock.\nReason: ${existingUser.blockReason}, from ${existingUser.blockDetails.blockedAt}.`;
-        bot.sendPhoto(adminChatId, userProfile.profilePhoto.photoPath, {
+        bot.sendPhoto(process.env.ADMIN_CHAT_ID, userProfile.profilePhoto.photoPath, {
           caption: requestMessage,
           reply_markup: {
             inline_keyboard: [
@@ -188,7 +186,7 @@ bot.on('callback_query', async (callbackQuery) => {
   } 
  } catch (err) {
   console.error('Error callback processing:', err);
-  bot.sendMessage(adminChatId, 'Произошла ошибка при обработке колбэк.');
+  bot.sendMessage(process.env.ADMIN_CHAT_ID, 'Произошла ошибка при обработке колбэк.');
 }
 });
 
@@ -210,19 +208,19 @@ bot.on('message', async (msg) => {
         { $push: { feedback: { text: msg.text, date: Date.now() } } },
         { upsert: true, new: true }
       )
-      bot.sendMessage(adminChatId, `New feedback received from ${userId}:\n${msg.text}`);
+      bot.sendMessage(process.env.ADMIN_CHAT_ID, `New feedback received from ${userId}:\n${msg.text}`);
       bot.sendMessage(chatId, i18n.__('messages.feedback_thanks'));
     }
   
     if (msg.reply_to_message && msg.reply_to_message.text.includes(i18n.__('messages.request_support'))) {
       // Пересылаем сообщение в чат техподдержки
-      bot.forwardMessage(adminChatId, chatId, msg.message_id);
+      bot.forwardMessage(process.env.ADMIN_CHAT_ID, chatId, msg.message_id);
   
       // Отправляем подтверждение пользователю
       bot.sendMessage(chatId, i18n.__('messages.support_request_received'));
     }
   } catch (err) {
     console.error('Error msg:', err);
-    bot.sendMessage(adminChatId, 'Произошла ошибка при обработке сообщения.');
+    bot.sendMessage(process.env.ADMIN_CHAT_ID, 'Произошла ошибка при обработке сообщения.');
   }
 });

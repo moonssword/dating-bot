@@ -9,12 +9,12 @@ const userSchema = new mongoose.Schema({
     languageCode: String,
     globalUserState: {
         type: String,
-        enum: ['active', 'registration_process', 'new', 'blocked', 'banned', 'deleted'],
+        enum: ['active', 'registration_process', 'new', 'blocked', 'banned', 'deleted', 'rejected'],
         default: 'new',
       },
     blockReason: {
         type: String,
-        enum: ['spam', 'offensive_behavior', 'inappropriate_content', 'fraud', 'impersonation', 'community_rules_violation', 'inactivity', 'deleted_himself', 'face_not_detected'],
+        enum: ['spam', 'offensive_behavior', 'inappropriate_content', 'fraud', 'impersonation', 'community_rules_violation', 'inactivity', 'deleted_himself', 'face_not_detected', ''],
         default: '',
       },
     isBlocked: { type: Boolean, default: false },

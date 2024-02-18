@@ -39,7 +39,7 @@
 		],
 		[
 			"⚙️ Settings",
-			"💕 Likes you"
+			"💕 Likes"
 		]
 	],
 	"settings_menu_message": "👇 Select the menu section",
@@ -131,13 +131,12 @@
 	"write_liked_user_inline_keyboard": "💌 Write message",
 	"write_liked_candidate_inline_keyboard": "💌 Open chat with",
 	"continue_viewing_message": "⏩ Continue viewing",
-	"candidate_lives_message": "🏠 Lives in ",
+	"candidate_lives_message": "🏠 lives in ",
 	"km_away_message": "km away",
 	"previous_match_button": "⏪",
 	"next_match_button": "⏩",
 	"first_match_button": "⏮️",
 	"last_match_button": "⏭️",
-	"delete_match_button": "❌ Delete match",
 	"no_matches_message": "💔 No matches found",
 	"no_next_matches_message": "⚠️ No more matches available",
 	"no_previous_matches_message": "⚠️ No more matches available",
@@ -159,7 +158,17 @@
 	"messages": {
 		"banned_account": "Your account has been banned for repeated violations of the service's usage rules.",
 		"blocked_account": "For assistance, please contact support",
-		"photo_rejected_multiple_times": "Your account has been blocked for repeatedly trying to upload a photo that does not comply with the service's policy. Please contact support"
+		"photo_rejected_multiple_times": "Your account has been blocked for repeatedly trying to upload a photo that does not comply with the service's policy. Please contact support",
+		"match_deleted": "Match deleted",
+		"registration_approved": "❗ Registration approved",
+		"registration_rejected": "⚠️ You have been denied registration due to a violation of the service policy",
+		"registration_denied": "has been denied registration."
 	},
-	"block_reasons.": "block_reasons."
+	"block_reasons.": "block_reasons.",
+	"buttons": {
+		"delete_match_button": "❌ Delete",
+		"open_chat": "💌 Open chat",
+		"approve_registration": "✅ Approve",
+		"reject_registration": "❌ Reject"
+	}
 }

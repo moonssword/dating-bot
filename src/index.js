@@ -110,6 +110,22 @@ bot.onText(/\/start/, async (msg) => {
         parse_mode: 'HTML',
       });
 
+    } else if (existingUser && existingUser.globalUserState === 'blocked') {
+      const blockReasonMessage = `${i18n.__('block_reasons.'+ existingUser.blockReason)}\n${i18n.__('messages.blocked_account')} @${BOT_NAMES.SUPPORT}`;
+      bot.sendMessage(chatId, blockReasonMessage);
+      
+    } else if (existingUser && existingUser.globalUserState === 'banned') {
+      const bannedMessage = `${i18n.__('messages.banned_account')}`;
+      bot.sendMessage(chatId, bannedMessage);
+    } else if (existingUser && existingUser.globalUserState === 'active') {
+      currentUserState.set(userId, 'main_menu');
+      bot.sendMessage(chatId, i18n.__('main_menu_message'), {
+        reply_markup: {
+          keyboard: i18n.__('main_menu_buttons'),
+          resize_keyboard: true
+        },
+        parse_mode: 'HTML',
+      });
     } else {
       console.log('User already exists:', existingUser);
     }
@@ -123,10 +139,13 @@ bot.on('callback_query', async (callbackQuery) => {
   const messageId = callbackQuery.message.message_id;
   const userId = callbackQuery.from.id;
   const data = callbackQuery.data;
+  const [action, targetUserId] = callbackQuery.data.split(':'); //Для модерации
   const existingUser = await User.findOne({ telegramId: userId });
   const userProfile = await Profile.findOne({ telegramId: userId });
   await updateUserLastActivity(userId);
-  const buttonsViewMatches = ['previous_match_button', 'next_match_button', 'first_match_button', 'last_match_button', 'delete_match_button']; //Обработчик совпадений
+
+  //Обработчик совпадений
+  const buttonsViewMatches = ['previous_match_button', 'next_match_button', 'first_match_button', 'last_match_button', 'delete_match_button'];
 
   try {
     if ('registration' === data) {
@@ -337,7 +356,21 @@ bot.on('callback_query', async (callbackQuery) => {
         },
         parse_mode: 'HTML',}
       )
-    } else if (buttonsViewMatches.includes(data)) {
+      const newUserProfile = await Profile.findOne({telegramId: userId});
+      await sendProfileForModeration(process.env.ADMIN_CHAT_ID, newUserProfile);
+
+    } else if (action === 'approve_registration') {
+      await User.findOneAndUpdate({ telegramId: targetUserId }, { globalUserState: 'active' });
+      bot.answerCallbackQuery( callbackQuery.id, {text: i18n.__('messages.registration_approved'), show_alert: false} );
+      return;
+    } else if (action === 'reject_registration') {
+      const targetUserProfile = await Profile.findOne({telegramId: targetUserId});
+      await User.findOneAndUpdate({ telegramId: targetUserId }, { globalUserState: 'rejected', blockReason: 'community_rules_violation', isBlocked: true, blockDetails: {blockedAt: Date.now()} });
+      bot.sendMessage( chatId, `${targetUserProfile.profileName} ${targetUserProfile.telegramId} ${i18n.__('messages.registration_denied')}` );
+      bot.sendMessage(targetUserId, `${i18n.__('messages.registration_rejected')}\n${i18n.__('messages.blocked_account')} @${BOT_NAMES.SUPPORT}`);
+      return;
+    }
+     else if (buttonsViewMatches.includes(data)) {
       const matchesProfiles = await getMatchesProfiles(userProfile);
       let currentMatchIndex = userProfile.viewingMatchIndex || 0;
       
@@ -352,7 +385,39 @@ bot.on('callback_query', async (callbackQuery) => {
           bot.answerCallbackQuery( callbackQuery.id, {text: i18n.__('no_next_matches_message'), show_alert: false} );
           return;
         } else if ('delete_match_button' === data) {
-          //Удаление совпадения
+          const matchedUserId = matchesProfiles[currentMatchIndex].telegramId;
+          const matchProfile = await Profile.findOne({ telegramId: matchedUserId });
+          // Удаление совпадения из списка пользователя
+          userProfile.matches = userProfile.matches.filter(id => id !== matchedUserId);
+          await userProfile.save();
+
+          matchProfile.matches = matchProfile.matches.filter(id => id !== userId);
+          await matchProfile.save();
+
+          userProfile.dislikedProfiles.push(matchedUserId);
+          await userProfile.save();
+
+          userProfile.likedProfiles = userProfile.likedProfiles.filter(id => id !== matchedUserId);
+          matchProfile.likedProfiles = matchProfile.likedProfiles.filter(id => id !== userId);
+          await userProfile.save();
+          await matchProfile.save();
+
+          bot.answerCallbackQuery(callbackQuery.id, { text: i18n.__('messages.match_deleted'), show_alert: false });
+            // Обновление интерфейса
+            if (userProfile.matches.length > 0) {
+              userProfile.viewingMatchIndex = userProfile.viewingMatchIndex > 0 ? userProfile.viewingMatchIndex - 1 : 1;
+              const nextMatchProfile = matchesProfiles[userProfile.viewingMatchIndex];
+              await sendMatchProfile(chatId, nextMatchProfile, userProfile, messageId);
+            } else {
+              currentUserState.set(userId, 'main_menu');
+              bot.sendMessage(chatId, i18n.__('no_matches_message'), {
+                reply_markup: {
+                  keyboard: i18n.__('main_menu_buttons'),
+                  resize_keyboard: true
+                },
+                parse_mode: 'HTML',
+              });
+            }
           return;
         }
 
@@ -471,7 +536,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
               const currentMatchIndex = userProfile.viewingMatchIndex || 0;
               const currentMatchProfile = matchesProfiles[currentMatchIndex];
 
-              bot.sendMessage(chatId, 'Просмотр совпадений', {
+              await bot.sendMessage(chatId, 'Просмотр совпадений', {
                 reply_markup: {
                   keyboard: i18n.__('back_button'),
                   resize_keyboard: true
@@ -958,7 +1023,6 @@ async function sendLikesYouProfiles(chatId, userId, userProfile, userSubscriptio
   }
 }
 
-
 async function getMatchesProfiles(userProfile) {
   try {
     const matchesProfiles = await Profile.find({
@@ -980,16 +1044,17 @@ async function sendMatchProfile(chatId, matchProfile, userProfile, messageId) {
     const captionInfo = `${matchProfile.profileName}, ${matchProfile.age}\n${i18n.__('candidate_lives_message')}${matchProfile.location.locality}, ${matchProfile.location.country}${distanceText}\n${getLastActivityStatus(matchProfile.lastActivity)}\n${aboutMeText}`;
     const currentMatchIndex = userProfile.viewingMatchIndex || 0;
 
-    // Set callback_data based on match index
     const previousCallbackData = currentMatchIndex > 0 ? 'previous_match_button' : 'first_match_button';
     const nextCallbackData = currentMatchIndex < userProfile.matches.length - 1 ? 'next_match_button' : 'last_match_button';
 
-    // Create inline keyboard based on match index
     const inlineKeyboardMain = {
       inline_keyboard: [
         [
+          { text: i18n.__('buttons.delete_match_button'), callback_data: 'delete_match_button' },
+          { text: i18n.__('buttons.open_chat'), url: `https://t.me/${matchProfile.userName}` },
+        ],
+        [
           { text: i18n.__(previousCallbackData), callback_data: previousCallbackData },
-          { text: '💌', url: `https://t.me/${matchProfile.userName}` },
           { text: i18n.__(nextCallbackData), callback_data: nextCallbackData },
         ],
       ],
@@ -1083,6 +1148,23 @@ async function sendMyProfile(chatId, userProfile) {
     },
     parse_mode: 'HTML',
     protect_content: true,
+  });
+}
+
+async function sendProfileForModeration(chatId, userProfile) {
+  let aboutMeText = userProfile.aboutMe ? `<blockquote><i>${userProfile.aboutMe}</i></blockquote>` : '';
+  const genderText = userProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
+  bot.sendPhoto(chatId, userProfile.profilePhoto.photoPath, {
+    caption: `${userProfile.profileName}, ${userProfile.age}\n🏠${userProfile.location.locality}, ${userProfile.location.country}\n${genderText}\n${aboutMeText}`,
+    reply_markup:  {
+      inline_keyboard: [
+        [
+          { text: i18n.__('buttons.approve_registration'), callback_data: `approve_registration:${userProfile.telegramId}` },
+          { text: i18n.__('buttons.reject_registration'), callback_data: `reject_registration:${userProfile.telegramId}` }
+        ]
+      ]
+    },
+    parse_mode: 'HTML',
   });
 }
 

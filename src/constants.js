@@ -76,15 +76,15 @@ const BUTTONS = {
   },
   MATCHES: {
     en: '💘 Matches',
-    ru: '💘 Совпадения'
+    ru: '💘 Симпатии'
   },
   SETTINGS: {
     en: '⚙️ Settings',
     ru: '⚙️ Настройки'
   },
   LIKES_YOU: {
-    en: '💕 Likes you',
-    ru: '💕 Вы понравились'
+    en: '💕 Likes',
+    ru: '💕 Лайки'
   },
   MAKE_A_GIFT: {
     en: '🎁 Make a gift',
