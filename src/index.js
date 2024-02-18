@@ -65,6 +65,7 @@ bot.onText(/\/start/, async (msg) => {
         telegramId: createdUser.telegramId,
         profileName: createdUser.firstName,
         userName: createdUser.userName,
+        isActive: true,
         // Add other profile properties as needed
       };
       const createdProfile = await Profile.create(profileData);
@@ -110,7 +111,7 @@ bot.onText(/\/start/, async (msg) => {
         parse_mode: 'HTML',
       });
 
-    } else if (existingUser && existingUser.globalUserState === 'blocked') {
+    } else if (existingUser && existingUser.globalUserState === 'blocked' || existingUser.globalUserState === 'rejected') {
       const blockReasonMessage = `${i18n.__('block_reasons.'+ existingUser.blockReason)}\n${i18n.__('messages.blocked_account')} @${BOT_NAMES.SUPPORT}`;
       bot.sendMessage(chatId, blockReasonMessage);
       
@@ -359,13 +360,19 @@ bot.on('callback_query', async (callbackQuery) => {
       const newUserProfile = await Profile.findOne({telegramId: userId});
       await sendProfileForModeration(process.env.ADMIN_CHAT_ID, newUserProfile);
 
-    } else if (action === 'approve_registration') {
+    } else if (action === 'approve_registration') { //Одобрить регистрация
       await User.findOneAndUpdate({ telegramId: targetUserId }, { globalUserState: 'active' });
       bot.answerCallbackQuery( callbackQuery.id, {text: i18n.__('messages.registration_approved'), show_alert: false} );
       return;
-    } else if (action === 'reject_registration') {
+    } else if (action === 'reject_registration') { //Отклонить регистрацию
       const targetUserProfile = await Profile.findOne({telegramId: targetUserId});
-      await User.findOneAndUpdate({ telegramId: targetUserId }, { globalUserState: 'rejected', blockReason: 'community_rules_violation', isBlocked: true, blockDetails: {blockedAt: Date.now()} });
+      await User.findOneAndUpdate({ telegramId: targetUserId }, { 
+        globalUserState: 'rejected', 
+        blockReason: 'community_rules_violation', 
+        isBlocked: true, 
+        blockDetails: {blockedAt: Date.now()} 
+      });
+      await Profile.findOneAndUpdate({ telegramId: targetUserId }, { isActive: false });
       bot.sendMessage( chatId, `${targetUserProfile.profileName} ${targetUserProfile.telegramId} ${i18n.__('messages.registration_denied')}` );
       bot.sendMessage(targetUserId, `${i18n.__('messages.registration_rejected')}\n${i18n.__('messages.blocked_account')} @${BOT_NAMES.SUPPORT}`);
       return;
@@ -986,7 +993,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             });
           break;
       }
-    } else if (existingUser && existingUser.globalUserState === 'blocked') {
+    } else if (existingUser && existingUser.globalUserState === 'blocked' || existingUser.globalUserState === 'rejected') {
       const blockReasonMessage = `${i18n.__('block_reasons.'+ existingUser.blockReason)}\n${i18n.__('messages.blocked_account')} @${BOT_NAMES.SUPPORT}`;
       bot.sendMessage(chatId, blockReasonMessage);
 
@@ -1006,6 +1013,7 @@ async function sendLikesYouProfiles(chatId, userId, userProfile, userSubscriptio
     const likesYouProfiles = await Profile.find({
       likedProfiles: userProfile.telegramId,
       telegramId: { $nin: [...userProfile.likedProfiles, ...userProfile.dislikedProfiles, ...userProfile.matches] },
+      isActive: true,
     });
     if (likesYouProfiles && likesYouProfiles.length > 0) {
       const firstOfLikesProfile = likesYouProfiles[0];
@@ -1027,6 +1035,7 @@ async function getMatchesProfiles(userProfile) {
   try {
     const matchesProfiles = await Profile.find({
       telegramId: { $in: userProfile.matches },
+      isActive: true,
     });
 
     return matchesProfiles;
@@ -1260,6 +1269,7 @@ async function getCandidateProfile(Profile, userProfile) {
       'preferences.preferredGender': userProfile.gender,
       'preferences.ageRange.min': { $lte: userProfile.age },
       'preferences.ageRange.max': { $gte: userProfile.age },
+      isActive: true,
     });
 
     if (candidateProfile) {

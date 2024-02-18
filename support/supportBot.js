@@ -125,6 +125,7 @@ bot.on('callback_query', async (callbackQuery) => {
       break;
     case 'approve_unblock':
       await User.findOneAndUpdate({ telegramId: targetUserId }, { $set: { globalUserState: 'active', isBlocked: false, blockReason: '', } });
+      await Profile.findOneAndUpdate({ telegramId: targetUserId }, { isActive: true });
       await UserPhoto.findOneAndUpdate({ telegramId: targetUserId }, { $set: { rejectCount: 0 } });
       bot.sendMessage(chatId, i18n.__('messages.user_unblocked'), {parse_mode: 'HTML'} );
       bot.sendMessage(targetUserId, i18n.__('messages.account_unblocked_advice'), {parse_mode: 'HTML'} );

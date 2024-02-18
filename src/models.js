@@ -43,6 +43,10 @@ const userSchema = new mongoose.Schema({
     birthday: Number,
     age: Number,
     interests: String,
+    isActive: {
+        type: Boolean,
+        default: true,
+    },
     aboutMe: {
         type: String,
         maxlength: 1000
