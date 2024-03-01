@@ -14,7 +14,6 @@ import moment from 'moment';
 process.env.NTBA_FIX_319 = 1;
 process.env.NTBA_FIX_350 = 0;
 
-// Подключение к базе данных MongoDB
 mongoose.connect('mongodb://localhost:27017/userdata')
 .then(() => console.log('Connected to MongoDB'))
 .catch((error) => console.error('Connection to MongoDB failed:', error));
@@ -25,10 +24,10 @@ const locationDataMap = new Map(); // Создаем Map для временно
 const currentUserState = new Map(); // Переменная состояния регистрации(state)
 
 i18n.configure({
-  locales: ['en', 'ru'], // Доступные языки
-  directory: `${__dirname}/locales`, // Путь к файлам перевода
+  locales: ['en', 'ru'],
+  directory: `${__dirname}/locales`,
 //  defaultLocale: 'ru', // Язык по умолчанию
-  objectNotation: true, // Использование объектной нотации для строк
+  objectNotation: true,
 });
 
 const bot = new TelegramBot(process.env.bot_token, { polling: true });
@@ -36,6 +35,7 @@ const bot = new TelegramBot(process.env.bot_token, { polling: true });
 bot.onText(/\/start/, async (msg) => {
   console.log(msg);
   const chatId = msg.chat.id;
+  const userId = msg.from.id;
   const userLanguage = msg.from.language_code;
   const userData = {
     telegramId: msg.from.id,
@@ -66,7 +66,6 @@ bot.onText(/\/start/, async (msg) => {
         profileName: createdUser.firstName,
         userName: createdUser.userName,
         isActive: true,
-        // Add other profile properties as needed
       };
       const createdProfile = await Profile.create(profileData);
       console.log('Profile created for the new user:', createdProfile);
@@ -112,15 +111,16 @@ bot.onText(/\/start/, async (msg) => {
       });
 
     } else if (existingUser && existingUser.globalUserState === 'blocked' || existingUser.globalUserState === 'rejected') {
-      const blockReasonMessage = `${i18n.__('block_reasons.'+ existingUser.blockReason)}\n${i18n.__('messages.blocked_account')} @${BOT_NAMES.SUPPORT}`;
+      const blockReasonMessage = `${i18n.__('block_reasons.'+ existingUser.blockReason)}\n${i18n.__('messages.blocked_account')} ${BOT_NAMES.SUPPORT}`;
       bot.sendMessage(chatId, blockReasonMessage);
-      
+      return;
     } else if (existingUser && existingUser.globalUserState === 'banned') {
       const bannedMessage = `${i18n.__('messages.banned_account')}`;
       bot.sendMessage(chatId, bannedMessage);
+      return;
     } else if (existingUser && existingUser.globalUserState === 'active') {
       currentUserState.set(userId, 'main_menu');
-      bot.sendMessage(chatId, i18n.__('main_menu_message'), {
+      bot.sendMessage(chatId, i18n.__('main_menu_message', { supportBot: BOT_NAMES.SUPPORT }), {
         reply_markup: {
           keyboard: i18n.__('main_menu_buttons'),
           resize_keyboard: true
@@ -140,7 +140,7 @@ bot.on('callback_query', async (callbackQuery) => {
   const messageId = callbackQuery.message.message_id;
   const userId = callbackQuery.from.id;
   const data = callbackQuery.data;
-  const [action, targetUserId] = callbackQuery.data.split(':'); //Для модерации
+  const [action, targetUserId, reason] = data.split(':'); //Для модерации
   const existingUser = await User.findOne({ telegramId: userId });
   const userProfile = await Profile.findOne({ telegramId: userId });
   await updateUserLastActivity(userId);
@@ -350,7 +350,7 @@ bot.on('callback_query', async (callbackQuery) => {
       console.log('User state is "active":', updatedUser);
       bot.deleteMessage(chatId, messageId);
 
-      bot.sendMessage(chatId, i18n.__('main_menu_message'), {
+      bot.sendMessage(chatId, i18n.__('main_menu_message', { supportBot: BOT_NAMES.SUPPORT }), {
         reply_markup: {
           keyboard: i18n.__('main_menu_buttons'),
           resize_keyboard: true
@@ -376,8 +376,7 @@ bot.on('callback_query', async (callbackQuery) => {
       bot.sendMessage( chatId, `${targetUserProfile.profileName} ${targetUserProfile.telegramId} ${i18n.__('messages.registration_denied')}` );
       bot.sendMessage(targetUserId, `${i18n.__('messages.registration_rejected')}\n${i18n.__('messages.blocked_account')} @${BOT_NAMES.SUPPORT}`);
       return;
-    }
-     else if (buttonsViewMatches.includes(data)) {
+    } else if (buttonsViewMatches.includes(data)) {
       const matchesProfiles = await getMatchesProfiles(userProfile);
       let currentMatchIndex = userProfile.viewingMatchIndex || 0;
       
@@ -433,6 +432,47 @@ bot.on('callback_query', async (callbackQuery) => {
 
       const currentMatchProfile = matchesProfiles[currentMatchIndex];
       await sendMatchProfile(chatId, currentMatchProfile, userProfile, messageId);
+    } else if (action === 'report') {
+      const reportedUser = await User.findOne({telegramId: targetUserId});
+      const reportedUserProfile = await Profile.findOne({telegramId: targetUserId});
+
+      const report = {
+          type: reason,
+          date: new Date(),
+          reportedBy: userId // ID пользователя, подавшего жалобу
+      };
+      reportedUser.reports = reportedUser.reports || [];
+      reportedUser.reports.push(report);
+
+      const dislikedProfileTelegramId = reportedUser.telegramId;
+      userProfile.dislikedProfiles.push(dislikedProfileTelegramId);
+      await userProfile.save();
+
+      // Проверка на количество жалоб, если жалоб 10 и более - блокировать аккаунт
+      if (reportedUser.reports.length >= 10) {
+          reportedUser.isBlocked = true;
+          reportedUser.blockReason = 'multiple_complaints';
+          reportedUser.globalUserState = 'blocked';
+      }
+      await reportedUser.save();
+
+      bot.deleteMessage(chatId, messageId);
+      //Всплывающее уведомление об отправке жалобы
+      bot.answerCallbackQuery( callbackQuery.id, {text: i18n.__('messages.report_sent', { user: reportedUserProfile.profileName }), show_alert: false} );
+
+      //Отправка следующего профиля
+      currentUserState.set(userId, 'viewing_profiles');
+      const candidateProfile = await getCandidateProfile(Profile, userProfile);
+      if (candidateProfile) {
+        await sendCandidateProfile(chatId, candidateProfile, userProfile);
+      } else {
+        currentUserState.set(userId, 'main_menu');
+        await bot.sendMessage(chatId, i18n.__('candidate_not_found_message'), {
+          reply_markup: {
+            keyboard: i18n.__('main_menu_buttons'),
+            resize_keyboard: true
+          }});
+      }
     }
   } catch (err) {
     console.error('Ошибка:', err);
@@ -564,7 +604,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
         case 'viewing_matches':
           if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
             currentUserState.set(userId, 'main_menu');
-            bot.sendMessage(chatId, i18n.__('main_menu_message'), {
+            bot.sendMessage(chatId, i18n.__('main_menu_message', { supportBot: BOT_NAMES.SUPPORT }), {
               reply_markup: {
                 keyboard: i18n.__('main_menu_buttons'),
                 resize_keyboard: true
@@ -579,7 +619,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           });
           if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
             currentUserState.set(userId, 'main_menu');
-            bot.sendMessage(chatId, i18n.__('main_menu_message'), {
+            bot.sendMessage(chatId, i18n.__('main_menu_message', { supportBot: BOT_NAMES.SUPPORT }), {
               reply_markup: {
                 keyboard: i18n.__('main_menu_buttons'),
                 resize_keyboard: true
@@ -618,7 +658,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             await sendSearchSettings(chatId, userProfile);
           } else if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
             currentUserState.set(userId, 'main_menu');
-            bot.sendMessage(chatId, i18n.__('main_menu_message'), {
+            bot.sendMessage(chatId, i18n.__('main_menu_message', { supportBot: BOT_NAMES.SUPPORT }), {
               reply_markup: {
                 keyboard: i18n.__('main_menu_buttons'),
                 resize_keyboard: true
@@ -641,7 +681,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           //Обработка анкет
           if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
             currentUserState.set(userId, 'main_menu');
-            bot.sendMessage(chatId, i18n.__('main_menu_message'), {
+            bot.sendMessage(chatId, i18n.__('main_menu_message', { supportBot: BOT_NAMES.SUPPORT }), {
               reply_markup: {
                 keyboard: i18n.__('main_menu_buttons'),
                 resize_keyboard: true
@@ -722,6 +762,28 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                   resize_keyboard: true
                 }});
             }
+          } else if (msg.text === BUTTONS.REPORT.en || msg.text === BUTTONS.REPORT.ru) {
+            currentUserState.set(userId, 'report_user');
+            const reportProfile = await getCandidateProfile(Profile, userProfile);
+            bot.sendMessage(chatId, i18n.__('messages.report_reason', { user: reportProfile.profileName }), {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: i18n.__('buttons.fake_profile'), callback_data: `report:${reportProfile.telegramId}:fake_profile` }],
+                  [{ text: i18n.__('buttons.sale_goods'), callback_data: `report:${reportProfile.telegramId}:sale_goods` }],
+                  [{ text: i18n.__('buttons.minor_user'), callback_data: `report:${reportProfile.telegramId}:minor_user` }],
+                  [{ text: i18n.__('buttons.inappropriate_content'), callback_data: `report:${reportProfile.telegramId}:inappropriate_content` }],
+                  [{ text: i18n.__('buttons.threats'), callback_data: `report:${reportProfile.telegramId}:threats` }],
+                ],
+              },
+              parse_mode: 'HTML',
+            });
+          }
+          break;
+        case 'report_user':
+          if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+            currentUserState.set(userId, 'viewing_profiles');
+            const candidateProfile = await getCandidateProfile(Profile, userProfile);
+            await sendCandidateProfile(chatId, candidateProfile, userProfile);
           }
           break;
         case 'viewing_match':
@@ -984,7 +1046,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           break;
         case undefined:  //на время отладки меню
             currentUserState.set(userId, 'main_menu');
-            bot.sendMessage(chatId, i18n.__('main_menu_message'), {
+            bot.sendMessage(chatId, i18n.__('main_menu_message', { supportBot: BOT_NAMES.SUPPORT }), {
               reply_markup: {
                 keyboard: i18n.__('main_menu_buttons'),
                 resize_keyboard: true
@@ -994,12 +1056,13 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           break;
       }
     } else if (existingUser && existingUser.globalUserState === 'blocked' || existingUser.globalUserState === 'rejected') {
-      const blockReasonMessage = `${i18n.__('block_reasons.'+ existingUser.blockReason)}\n${i18n.__('messages.blocked_account')} @${BOT_NAMES.SUPPORT}`;
+      const blockReasonMessage = `${i18n.__('block_reasons.'+ existingUser.blockReason)}\n${i18n.__('messages.blocked_account')} ${BOT_NAMES.SUPPORT}`;
       bot.sendMessage(chatId, blockReasonMessage);
-
+      return;
     } else if (existingUser && existingUser.globalUserState === 'banned') {
       const bannedMessage = `${i18n.__('messages.banned_account')}`;
       bot.sendMessage(chatId, bannedMessage);
+      return;
     }
   } catch (err) {
     console.error('Error retrieving user state:', err);

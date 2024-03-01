@@ -91,7 +91,7 @@ bot.on('callback_query', async (callbackQuery) => {
             inline_keyboard: [
               [
                 { text: i18n.__('buttons.approve_unblock'), callback_data: `approve_unblock:${userId}` },
-                { text: i18n.__('buttons.reject_unblock'), callback_data: 'reject_unblock' }
+                { text: i18n.__('buttons.reject_unblock'), callback_data: `reject_unblock:${userId}` }
               ]
             ]
           }
@@ -111,28 +111,29 @@ bot.on('callback_query', async (callbackQuery) => {
         //Логика обработки бана
 
       } else {
-        bot.editMessageText(i18n.__('messages.not_blocked'), {
-          chat_id: chatId,
-          message_id: messageId,
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: i18n.__('buttons.back'), callback_data: 'back_to_main' }]
-            ]
-          },
-          parse_mode: 'HTML'
-        });
+        bot.answerCallbackQuery( callbackQuery.id, {text: i18n.__('messages.not_blocked'), show_alert: false} );
+        // bot.editMessageText(i18n.__('messages.not_blocked'), {
+        //   chat_id: chatId,
+        //   message_id: messageId,
+        //   reply_markup: {
+        //     inline_keyboard: [
+        //       [{ text: i18n.__('buttons.back'), callback_data: 'back_to_main' }]
+        //     ]
+        //   },
+        //   parse_mode: 'HTML'
+        // });
       }
       break;
     case 'approve_unblock':
-      await User.findOneAndUpdate({ telegramId: targetUserId }, { $set: { globalUserState: 'active', isBlocked: false, blockReason: '', } });
-      await Profile.findOneAndUpdate({ telegramId: targetUserId }, { isActive: true });
+      await User.findOneAndUpdate({ telegramId: targetUserId }, { $set: { globalUserState: 'active', isBlocked: false, blockReason: '', reports: [] } });
+      await Profile.findOneAndUpdate({ telegramId: targetUserId }, {$set: { isActive: true }});
       await UserPhoto.findOneAndUpdate({ telegramId: targetUserId }, { $set: { rejectCount: 0 } });
-      bot.sendMessage(chatId, i18n.__('messages.user_unblocked'), {parse_mode: 'HTML'} );
+      bot.sendMessage(chatId, `${i18n.__('messages.user_unblocked')} ${targetUserId}`, {parse_mode: 'HTML'} );
       bot.sendMessage(targetUserId, i18n.__('messages.account_unblocked_advice'), {parse_mode: 'HTML'} );
       break;
 
     case 'reject_unblock':
-      bot.sendMessage(chatId, i18n.__('messages.unblock_request_denied'), {parse_mode: 'HTML'} );
+      bot.sendMessage(chatId, `${i18n.__('messages.unblock_request_denied')} ${targetUserId}`, {parse_mode: 'HTML'} );
       bot.sendMessage(targetUserId, `${i18n.__('messages.unblock_denial_advice')} ${BOT_NAMES.SUPPORT}`, {parse_mode: 'HTML', disable_web_page_preview: true} );
       break;
 

@@ -1,11 +1,15 @@
 // constants.js
 
 const BOT_NAMES = {
-  SUPPORT: "chatdavinci_bot",
+  SUPPORT: "@iMatcherHelpBot",
   ADMIN_ID: "",
 }
-  
+
 const BUTTONS = {
+  REPORT: {
+    en: '📣 Report',
+    ru: '📣 Жалоба'
+  },
   MY_LOCATION: {
     en: '🏠 My location',
     ru: '🏠 Мое местоположение'

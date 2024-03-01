@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
       },
     blockReason: {
         type: String,
-        enum: ['spam', 'offensive_behavior', 'inappropriate_content', 'fraud', 'impersonation', 'community_rules_violation', 'inactivity', 'deleted_himself', 'face_not_detected', ''],
+        enum: ['spam', 'offensive_behavior', 'inappropriate_content', 'fraud', 'impersonation', 'community_rules_violation', 'inactivity', 'deleted_himself', 'face_not_detected', 'multiple_complaints', ''],
         default: '',
       },
     isBlocked: { type: Boolean, default: false },
@@ -23,6 +23,15 @@ const userSchema = new mongoose.Schema({
         unblockedAt: Date,
         notes: String,
       },
+    reports: [{
+        type: {
+            type: String,
+            enum: ['fake_profile', 'sale_goods', 'inappropriate_content', 'minor_user', 'threats'],
+            required: true,
+        },
+        reportedBy: { type: Number, int64: true },
+        date: { type: Date, default: Date.now },
+    }],
     isBot: Boolean,
     feedback: { text: String, date: Date },
   }, { versionKey: false, timestamps: true  });
