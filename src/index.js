@@ -9,6 +9,7 @@ import { handlePhoto } from './photoHandler.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { BOT_NAMES, BUTTONS, URLS } from './constants.js';
+import { createPaymentForUser } from './paymentHandler.js';
 import moment from 'moment';
 
 process.env.NTBA_FIX_319 = 1;
@@ -197,13 +198,13 @@ bot.on('callback_query', async (callbackQuery) => {
 
           bot.answerCallbackQuery(callbackQuery.id, {text: i18n.__('select_language_text'), show_alert: false} );
           console.log('User language updated:', updatedUser);
-    
+
           currentUserState.set(userId, 'settings_menu');
           await bot.sendMessage(chatId, i18n.__('settings_menu_message'), {
             reply_markup: {
               keyboard: i18n.__('settings_menu_buttons'),
               resize_keyboard: true
-            }});          
+            }});
         }
 
     } else if ('select_male' === data || 'select_female' === data) {
@@ -220,12 +221,12 @@ bot.on('callback_query', async (callbackQuery) => {
             },
             { new: true }
           );
-    
+
           console.log('User gender updated:', updatedProfile);
-    
+
           bot.answerCallbackQuery(callbackQuery.id, {text: genderText, show_alert: false} );
           bot.deleteMessage(chatId, messageId);
-    
+
           bot.sendMessage(chatId, i18n.__('request_location_or_city'), {
             reply_markup: {
               keyboard: [
@@ -246,7 +247,7 @@ bot.on('callback_query', async (callbackQuery) => {
             { new: true }
           );
           console.log('User gender preference updated:', updatedProfile);
-    
+
           bot.deleteMessage(chatId, messageId);
           currentUserState.set(userId, 'search_settings');
           sendUpdatedSearchSettings(chatId, updatedProfile);
@@ -285,10 +286,10 @@ bot.on('callback_query', async (callbackQuery) => {
             { new: true }
           );
           console.log('User location updated:', updatedProfile);
-  
+
           bot.answerCallbackQuery(callbackQuery.id, {text: `${i18n.__('location_notification')} ${selectedCity.display_name}`, show_alert: false});
           bot.deleteMessage(chatId, messageId);
-  
+
           bot.sendMessage(chatId, i18n.__('enter_birthday_message'), { reply_markup: { remove_keyboard: true } }) // Текст ввода даты рождения
           currentUserState.set(userId, 'enter_birthday');
 
@@ -366,11 +367,11 @@ bot.on('callback_query', async (callbackQuery) => {
       return;
     } else if (action === 'reject_registration') { //Отклонить регистрацию
       const targetUserProfile = await Profile.findOne({telegramId: targetUserId});
-      await User.findOneAndUpdate({ telegramId: targetUserId }, { 
-        globalUserState: 'rejected', 
-        blockReason: 'community_rules_violation', 
-        isBlocked: true, 
-        blockDetails: {blockedAt: Date.now()} 
+      await User.findOneAndUpdate({ telegramId: targetUserId }, {
+        globalUserState: 'rejected',
+        blockReason: 'community_rules_violation',
+        isBlocked: true,
+        blockDetails: {blockedAt: Date.now()}
       });
       await Profile.findOneAndUpdate({ telegramId: targetUserId }, { isActive: false });
       bot.sendMessage( chatId, `${targetUserProfile.profileName} ${targetUserProfile.telegramId} ${i18n.__('messages.registration_denied')}` );
@@ -379,7 +380,7 @@ bot.on('callback_query', async (callbackQuery) => {
     } else if (buttonsViewMatches.includes(data)) {
       const matchesProfiles = await getMatchesProfiles(userProfile);
       let currentMatchIndex = userProfile.viewingMatchIndex || 0;
-      
+
         if ('previous_match_button' === data && currentMatchIndex > 0) {
           currentMatchIndex--;
         } else if ('next_match_button' === data && currentMatchIndex < matchesProfiles.length - 1) {
@@ -473,7 +474,36 @@ bot.on('callback_query', async (callbackQuery) => {
             resize_keyboard: true
           }});
       }
+    } else if (data ==='buy_premium') {
+      const options = {
+        reply_markup: JSON.stringify({
+          inline_keyboard: [
+            [{ text: i18n.__('buttons.day'), callback_data: `select_subscription:day` }],
+            [{ text: i18n.__('buttons.week'), callback_data: `select_subscription:week` }],
+            [{ text: i18n.__('buttons.month'), callback_data: `select_subscription:month` }],
+            [{ text: i18n.__('buttons.6month'), callback_data: `select_subscription:6month` }],
+            [{ text: i18n.__('buttons.year'), callback_data: `select_subscription:year` }]
+          ]
+        })
+      };
+      bot.sendMessage(chatId, i18n.__('messages.select_subscription'), options);
+    } else if (action === 'select_subscription') {
+      const paymentUrl = await createPaymentForUser(targetUserId, userId, chatId, bot);  //Передача subscriptionType через targetUserId 
+      if (paymentUrl) {
+        bot.editMessageText(i18n.__('messages.follow_link_to_pay', { url: paymentUrl }), {
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: i18n.__('buttons.payment_proceed'), url: paymentUrl }],
+              [{ text: i18n.__('buttons.return_subscriptions'), callback_data: 'buy_premium' }],
+            ]
+          },
+          parse_mode: 'HTML'
+        });
+      }
     }
+
   } catch (err) {
     console.error('Ошибка:', err);
     bot.sendMessage(chatId, 'Произошла ошибка при обработке колбэк-данных.');
@@ -545,7 +575,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
         case 'enter_birthday':  // Обработка ввода даты рождения
           await handleBirthday(bot, currentUserState, User, Profile, i18n, msg);
           break;
-        case 'select_photo':  // Обработка отправленной фотографии 
+        case 'select_photo':  // Обработка отправленной фотографии
           await handlePhoto(bot, currentUserState, i18n, msg, User, UserPhoto, Profile);
           break;
         //default:
@@ -578,7 +608,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             currentUserState.set(userId, 'viewing_matches');
 
             const matchesProfiles = await getMatchesProfiles(userProfile);
-          
+
             if (matchesProfiles.length > 0) {
               const currentMatchIndex = userProfile.viewingMatchIndex || 0;
               const currentMatchProfile = matchesProfiles[currentMatchIndex];
@@ -590,7 +620,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                 }});
 
               await sendMatchProfile(chatId, currentMatchProfile, userProfile);
-              
+
             } else {
               currentUserState.set(userId, 'main_menu');
               await bot.sendMessage(chatId, i18n.__('no_matches_message'));
@@ -632,7 +662,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             //Сохранить информацию о лайке
             const likedCandidateProfileTelegramId = firstOfLikesProfile.telegramId;
             userProfile.likedProfiles.push(likedCandidateProfileTelegramId);
-            await userProfile.save(); 
+            await userProfile.save();
 
             //Отправка уведомления о совпадении профилю [0]
             await sendMatchNotification(firstOfLikesProfile, userProfile, i18n, User, existingUser);
@@ -675,7 +705,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
                 ],
               },
             });
-          } 
+          }
           break;
         case 'viewing_profiles':
           //Обработка анкет
@@ -902,7 +932,7 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
               { new: true }
             );
             console.log('User profileName updated:', updatedProfile);
-        
+
             currentUserState.set(userId, 'my_profile');
             sendMyUpdatedProfile(chatId, updatedProfile);
           }
@@ -1139,7 +1169,7 @@ async function sendMatchProfile(chatId, matchProfile, userProfile, messageId) {
           caption: captionInfo,
           parse_mode: 'HTML',
         },
-        { chat_id: chatId, message_id: messageId, 
+        { chat_id: chatId, message_id: messageId,
           reply_markup: inlineKeyboardMain,
         });
 
@@ -1151,7 +1181,7 @@ async function sendMatchProfile(chatId, matchProfile, userProfile, messageId) {
           protect_content: true,
         });
     }
-    
+
 
   } catch (error) {
     console.error('Error sending match profile:', error);
@@ -1160,7 +1190,7 @@ async function sendMatchProfile(chatId, matchProfile, userProfile, messageId) {
 
 // Функция для отправки уведомления о Взаимном лайке
 async function sendMatchNotification(likedCandidateProfile, userProfile, i18n, User, existingUser) {
-  
+
   try {
     userProfile.matches.push(likedCandidateProfile.telegramId);
     likedCandidateProfile.matches.push(userProfile.telegramId);
@@ -1301,11 +1331,12 @@ async function sendCandidateProfile(chatId, candidateProfile, userProfile, userS
           keyboard: i18n.__('main_menu_buttons'),
           resize_keyboard: true
         }});
+      //Отправка текста с кнопкой для оплаты Премиум подписки
       await bot.sendPhoto(chatId, candidateProfile.profilePhoto.photoBlurredPath, {
         caption: `${candidateProfile.profileName}`,
         reply_markup: {
           inline_keyboard:  [
-            [{ text: i18n.__('buy_premium_button'), callback_data: 'buy_premium_button' }],
+            [{ text: i18n.__('buy_premium_button'), callback_data: 'buy_premium' }],
           ],
           resize_keyboard: true },
         parse_mode: 'HTML',

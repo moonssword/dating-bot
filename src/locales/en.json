@@ -1,5 +1,5 @@
 {
-	"registration_message": "Welcome to Hearts Hunter, the place where hearts find each other! 🌟 Whether you're looking for friendship, love, or just a conversation, you're in the right spot. Let's embark on this journey together. Tap 'Registration' to start your adventure in finding your heart's companion. Good Hunting! 💘",
+	"registration_message": "💘 Welcome to Hearts Hunter! Whether you're looking for friendship, love, or just a conversation, you're in the right spot. Let's embark on this journey together. Tap 'Registration' to start your adventure in finding your heart's companion. Good Hunting!",
 	"registration_button": "📝 Registration",
 	"select_language_message": "🌐 Choose your language:",
 	"select_english": "🇬🇧 English",
@@ -31,7 +31,7 @@
 	"confirm_agreement_message": "📝 By clicking Continue, you confirm that you accept the User Agreement and the Privacy Policy",
 	"confirm_agreement_link": "📄 Read agreement",
 	"confirm_agreement_button": "✏️ Continue",
-	"main_menu_message": "Here you can see 🎯 new candidates, 💘mutual likes or change your ⚙️profile settings. Do you have any questions? Contact support {{supportBot}}",
+	"main_menu_message": "Here you can see 👥new candidates, 💘mutual likes or change your ⚙️profile settings. Do you have any questions? Contact support {{supportBot}}",
 	"main_menu_buttons": [
 		["👥 Profiles","💘 Matches"],
 		["⚙️ Settings","💕 Likes"]
@@ -100,7 +100,7 @@
 	"no_previous_matches_message": "⚠️ No more matches available",
 	"no_likes_you_profiles_message": "💔 Sorry, but there are currently no profiles that have liked you. Keep swiping and you may find a match soon!",
 	"buy_premium_button": "🔐 Premium",
-	"buy_premium_message": "🌟 See who likes you by upgrading to a Premium subscription. See all the profiles that have liked you and connect with them immediately.",
+	"buy_premium_message": "🌟 See who likes you by upgrading to a Premium. See all the profiles that have liked you and connect with them immediately.",
 	"block_reasons": {
 		"spam": "Your account has been blocked due to spamming.",
 		"offensive_behavior": "Your account has been blocked due to offensive behavior.",
@@ -124,7 +124,9 @@
 		"registration_denied": "has been denied registration.",
 		"report_reason": "📣 Report {{user}}",
 		"report_details": "✅ Please specify the reason for the complaint",
-		"report_sent": "❗ Your report against user {{user}} has been sent"
+		"report_sent": "❗ Your report against user {{user}} has been sent",
+		"select_subscription": "💎 Premium unlocks unlimited likes, viewing users who liked you, and ad-free experience",
+		"follow_link_to_pay": "Please follow the <a href='{{url}}'>link</a> to pay"
 	},
 	"buttons": {
 		"delete_match_button": "❌ Delete",
@@ -138,6 +140,13 @@
 		"sale_goods": "Selling Goods or Services",
 		"minor_user": "Underage User",
 		"inappropriate_content": "Inappropriate Content",
-		"threats": "Violence, Hate, or Threats"
+		"threats": "Violence, Hate, or Threats",
+		"day": "120₽ for 1 day",
+		"week": "200₽ for 7 days",
+		"month": "400₽ for 30 days",
+		"6month": "2000₽ for 180 days",
+		"year": "3500₽ for 365 days",
+		"return_subscriptions": "⬅️Back",
+		"payment_proceed": "💳Proceed to payment"
 	}
 }
