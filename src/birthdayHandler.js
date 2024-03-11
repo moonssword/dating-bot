@@ -17,7 +17,11 @@ async function handleBirthday(bot, currentUserState, User, Profile, i18n, msg) {
           const [fullMatch, day, month, year] = birthdayRegex.exec(birthdayText);
           const birthdayDate = new Date(`${year}-${month}-${day}`);
           const currentDate = new Date();
-          const age = currentDate.getFullYear() - birthdayDate.getFullYear();
+          let age = currentDate.getFullYear() - birthdayDate.getFullYear();
+            if (currentDate.getMonth() < birthdayDate.getMonth() || (currentDate.getMonth() === birthdayDate.getMonth() && currentDate.getDate() < birthdayDate.getDate())) {
+                age--;
+            }
+
   
           if (age >= 18 && age <= 110) {
               try {

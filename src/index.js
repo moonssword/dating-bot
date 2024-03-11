@@ -111,6 +111,15 @@ bot.onText(/\/start/, async (msg) => {
         parse_mode: 'HTML',
       });
 
+    } else if (existingUser && existingUser.globalUserState === 'registration_process') {
+      bot.sendMessage(chatId, i18n.__('registration_message'), {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: i18n.__('registration_button'), callback_data: 'registration' }],
+          ],
+        },
+        parse_mode: 'HTML',
+      });
     } else if (existingUser && existingUser.globalUserState === 'blocked' || existingUser.globalUserState === 'rejected') {
       const blockReasonMessage = `${i18n.__('block_reasons.'+ existingUser.blockReason)}\n${i18n.__('messages.blocked_account')} ${BOT_NAMES.SUPPORT}`;
       bot.sendMessage(chatId, blockReasonMessage);

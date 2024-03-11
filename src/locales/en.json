@@ -1,5 +1,5 @@
 {
-	"registration_message": "💘 Welcome to Hearts Hunter! Whether you're looking for friendship, love, or just a conversation, you're in the right spot. Let's embark on this journey together. Tap 'Registration' to start your adventure in finding your heart's companion. Good Hunting!",
+	"registration_message": "💘 Welcome to Hearts Hunter! Whether you're looking for friendship, love, or just a conversation, you're in the right spot. Good Hunting!",
 	"registration_button": "📝 Registration",
 	"select_language_message": "🌐 Choose your language:",
 	"select_english": "🇬🇧 English",
@@ -13,7 +13,7 @@
 	"gender_selected_female": "You select 👩",
 	"preference_gender_selected_male": "Looking for 🧑🏻 Men",
 	"preference_gender_selected_female": "Looking for 👩 Women",
-	"request_location_or_city": "🌍 Send city name or geolocation for automatic detection\n<i>After submitting a location, you will be able to see the distance to profiles that have also shared the location</i>",
+	"request_location_or_city": "🌍 Send city name or geolocation for automatic detection\n<u>After submitting a location, you will be able to see the distance to profiles that have also shared the location</u>",
 	"send_location": "📍 Send location",
 	"list_of_cities": "👇 Select city from the list:",
 	"city_not_found": "⚠️ The city was not found",
