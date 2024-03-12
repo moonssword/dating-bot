@@ -484,19 +484,25 @@ bot.on('callback_query', async (callbackQuery) => {
           }});
       }
     } else if (data ==='buy_premium') {
+      bot.deleteMessage(chatId, messageId);
       const options = {
         reply_markup: JSON.stringify({
           inline_keyboard: [
-            [{ text: i18n.__('buttons.day'), callback_data: `select_subscription:day` }],
+            /*[{ text: i18n.__('buttons.day'), callback_data: `select_subscription:day` }],*/
             [{ text: i18n.__('buttons.week'), callback_data: `select_subscription:week` }],
             [{ text: i18n.__('buttons.month'), callback_data: `select_subscription:month` }],
             [{ text: i18n.__('buttons.6month'), callback_data: `select_subscription:6month` }],
-            [{ text: i18n.__('buttons.year'), callback_data: `select_subscription:year` }]
+            [{ text: i18n.__('buttons.year'), callback_data: `select_subscription:year` }],
+            [{ text: i18n.__('buttons.cancel_subscriptions'), callback_data: `select_subscription:cancel_subscriptions` }]
           ]
         })
       };
       bot.sendMessage(chatId, i18n.__('messages.select_subscription'), options);
     } else if (action === 'select_subscription') {
+      if (targetUserId === 'cancel_subscriptions') {
+        bot.deleteMessage(chatId, messageId);
+        return;
+      }
       const paymentUrl = await createPaymentForUser(targetUserId, userId, chatId, bot);  //Передача subscriptionType через targetUserId 
       if (paymentUrl) {
         bot.editMessageText(i18n.__('messages.follow_link_to_pay', { url: paymentUrl }), {

@@ -2,8 +2,8 @@
 	"registration_message": "💘 Welcome to Hearts Hunter! Whether you're looking for friendship, love, or just a conversation, you're in the right spot. Good Hunting!",
 	"registration_button": "📝 Registration",
 	"select_language_message": "🌐 Choose your language:",
-	"select_english": "🇬🇧 English",
-	"select_russian": "🇷🇺 Русский",
+	"select_english": "🇬🇧 EN",
+	"select_russian": "🇷🇺 RU",
 	"select_language_text": "🇬🇧 The English language is set",
 	"select_gender_message": "🚻 Specify your gender:",
 	"select_prefer_gender_message": "❓ Who are you looking for?",
@@ -135,11 +135,11 @@
 		"reject_registration": "❌ Reject",
 		"user_info": "Their bio",
 		"user_photo": "Their profile photo",
-		"incident": "Incident",
-		"fake_profile": "Fake profile/Scammer",
-		"sale_goods": "Selling Goods or Services",
-		"minor_user": "Underage User",
-		"inappropriate_content": "Inappropriate Content",
+		"incident": "⚠️ Incident",
+		"fake_profile": "🕵️‍♂️ Fake profile/Scammer",
+		"sale_goods": "💼 Selling Goods or Services",
+		"minor_user": "👶 Underage User",
+		"inappropriate_content": "🔞 Inappropriate Content",
 		"threats": "Violence, Hate, or Threats",
 		"day": "120₽ for 1 day",
 		"week": "200₽ for 7 days",
@@ -147,6 +147,7 @@
 		"6month": "2000₽ for 180 days",
 		"year": "3500₽ for 365 days",
 		"return_subscriptions": "⬅️Back",
-		"payment_proceed": "💳Proceed to payment"
+		"payment_proceed": "💳Proceed to payment",
+		"cancel_subscriptions": "🚫 Cancel"
 	}
 }

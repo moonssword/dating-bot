@@ -42,8 +42,8 @@
 		"support_request_received": "Your request has been received. A support representative will contact you shortly.",
 		"request_feedback": "Please provide your feedback. Your opinion matters to us.",
 		"feedback_thanks": "Thank you for your feedback!",
-		"feedback_too_long": "Your feedback exceeds the maximum length of 1000 characters."
-	},
-	"Active": "Active",
-	"Indefinitely": "Indefinitely"
+		"feedback_too_long": "Your feedback exceeds the maximum length of 1000 characters.",
+		"active_subscription": "active",
+		"inactive_subscription": "inactive"
+	}
 }

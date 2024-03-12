@@ -134,6 +134,7 @@ const userSchema = new mongoose.Schema({
   //Модель фотографий профиля
   export const UserPhoto = mongoose.model('UserPhoto', userPhotoSchema, 'usersPhotos');
   
+    //Схема подписки
   const subscriptionsSchema = new mongoose.Schema({
     user_id: {
       type: mongoose.Schema.Types.ObjectId,
@@ -143,7 +144,7 @@ const userSchema = new mongoose.Schema({
     telegramId: { type: Number, int64: true },
     subscriptionType: {
       type: String,
-      enum: ['basic', 'plus', 'premium'],
+      enum: ['basic', 'plus', 'premium', 'premium promo'],
       default: 'basic',
     },
     startDate: {

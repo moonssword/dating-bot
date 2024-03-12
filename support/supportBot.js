@@ -139,8 +139,8 @@ bot.on('callback_query', async (callbackQuery) => {
 
     case 'subscription':
       const userSubscription = await Subscriptions.findOne({ telegramId: userId });
-      let status = userSubscription.isActive ? i18n.__('Active') : i18n.__('Inactive');
-      let validity = userSubscription.endDate ? userSubscription.endDate.toLocaleDateString() : i18n.__('Indefinitely');
+      let status = userSubscription.isActive ? i18n.__('active_subscription') : i18n.__('inactive_subscription');
+      let validity = userSubscription.endDate ? userSubscription.endDate.toLocaleDateString() : '♾️';
 
       bot.editMessageText(i18n.__('messages.current_subscription', { subscriptionType: userSubscription.subscriptionType, status: status, validity: validity }), {
         chat_id: chatId,
