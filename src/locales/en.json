@@ -31,7 +31,7 @@
 	"confirm_agreement_message": "📝 By clicking Continue, you confirm that you accept the User Agreement and the Privacy Policy",
 	"confirm_agreement_link": "📄 Read agreement",
 	"confirm_agreement_button": "✏️ Continue",
-	"main_menu_message": "Here you can see 👥new candidates, 💘mutual likes or change your ⚙️profile settings. Do you have any questions? Contact support {{supportBot}}",
+	"main_menu_message": "Here you can see 👥new candidates, 💘mutual likes or change your ⚙️profile settings.\nDo you have any questions? Contact support {{supportBot}}",
 	"main_menu_buttons": [
 		["👥 Profiles","💘 Matches"],
 		["⚙️ Settings","💕 Likes"]

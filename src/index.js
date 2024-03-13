@@ -83,14 +83,13 @@ bot.onText(/\/start/, async (msg) => {
         user_id: createdUser._id,
         telegramId: createdUser.telegramId,
         subscriptionType: 'basic',
-        startDate: new Date(),
+        startDate: Date.now(),
         // endDate не требуется для базовой подписки, определяется условием в схеме
         isActive: true,
         paymentStatus: 'not_required',
         features: {
-          unlimitedLikes: true,
+          unlimitedLikes: false,
           seeWhoLikesYou: false,
-          additionalSearchFilters: false,
           adFree: false,
         },
       };
@@ -1329,7 +1328,7 @@ async function sendCandidateProfile(chatId, candidateProfile, userProfile, userS
   const distanceText = distance !== null ? `\n📍 ${distance} ${i18n.__('km_away_message')}` : '';
   try {
     const currentState = currentUserState.get(userProfile.telegramId);
-    const canViewProfile = currentState === 'viewing_profiles' || (currentState === 'likes_you' && userSubscriptions.isActive && userSubscriptions.subscriptionType === 'premium');
+    const canViewProfile = currentState === 'viewing_profiles' || ( currentState === 'likes_you' && userSubscriptions.isActive && userSubscriptions.features.seeWhoLikesYou === true );
     if (canViewProfile) {
       await bot.sendPhoto(chatId, candidateProfile.profilePhoto.photoPath, {
         caption: `${candidateProfile.profileName}, ${candidateProfile.age}\n${i18n.__('candidate_lives_message')}${candidateProfile.location.locality}, ${candidateProfile.location.country}${distanceText}\n${getLastActivityStatus(candidateProfile.lastActivity)}\n${aboutMeText}`,

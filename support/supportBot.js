@@ -76,7 +76,9 @@ bot.on('callback_query', async (callbackQuery) => {
       break;
     case 'confirm_delete':
       await User.findOneAndUpdate({ telegramId: userId }, { $set: { globalUserState: 'deleted', blockReason: 'deleted_himself', isBlocked: true, blockDetails: {blockedAt: Date.now()} } });
-      bot.sendMessage(msg.chat.id, i18n.__('messages.account_deleted'));
+      const currentDate = Date.now();
+      const threeMonthsLater = new Date(currentDate.getFullYear(), currentDate.getMonth() + 3, currentDate.getDate());
+      bot.sendMessage(msg.chat.id, `${i18n.__('messages.account_deleted')} ${threeMonthsLater.toLocaleDateString()}`);
       break;
 
     case 'unblock':
@@ -139,8 +141,8 @@ bot.on('callback_query', async (callbackQuery) => {
 
     case 'subscription':
       const userSubscription = await Subscriptions.findOne({ telegramId: userId });
-      let status = userSubscription.isActive ? i18n.__('active_subscription') : i18n.__('inactive_subscription');
-      let validity = userSubscription.endDate ? userSubscription.endDate.toLocaleDateString() : '♾️';
+      let status = userSubscription.isActive ? i18n.__('messages.active_subscription') : i18n.__('messages.inactive_subscription');
+      let validity = userSubscription.subscriptionType != 'basic' ? userSubscription.endDate.toLocaleDateString() : '♾️';
 
       bot.editMessageText(i18n.__('messages.current_subscription', { subscriptionType: userSubscription.subscriptionType, status: status, validity: validity }), {
         chat_id: chatId,

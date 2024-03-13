@@ -61,13 +61,19 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
         }
 
         // Уведомление пользователя о том, что фотография обрабатывается
-        const processingMessage = await bot.sendAnimation(chatId, 'https://dating-storage.s3.aeza.cloud/gif/bean-mr.gif', {
-            caption: i18n.__('photo_checking_message'),
+        // const processingMessage = await bot.sendAnimation(chatId, 'https://dating-storage.s3.aeza.cloud/gif/bean-mr.gif', {
+        //     caption: i18n.__('photo_checking_message'),
+        //     reply_markup: {
+        //         remove_keyboard: true,
+        //     },
+        //     protect_content: true,
+        //     });
+        const processingMessage = await bot.sendMessage(chatId, i18n.__('photo_checking_message'), {
             reply_markup: {
                 remove_keyboard: true,
             },
             protect_content: true,
-            });
+        });        
 
         // Получение информации о фотографии
         const photo = msg.photo[msg.photo.length - 1];

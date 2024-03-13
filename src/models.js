@@ -144,7 +144,7 @@ const userSchema = new mongoose.Schema({
     telegramId: { type: Number, int64: true },
     subscriptionType: {
       type: String,
-      enum: ['basic', 'plus', 'premium', 'premium promo'],
+      enum: ['basic', 'plus', 'premium', 'promo'],
       default: 'basic',
     },
     startDate: {
@@ -169,7 +169,7 @@ const userSchema = new mongoose.Schema({
     features: {
       unlimitedLikes: {
         type: Boolean,
-        default: true,
+        default: false,
       },
       seeWhoLikesYou: {
         type: Boolean,
