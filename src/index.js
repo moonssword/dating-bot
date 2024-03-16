@@ -136,6 +136,17 @@ bot.onText(/\/start/, async (msg) => {
         },
         parse_mode: 'HTML',
       });
+    } else if (existingUser && existingUser.globalUserState === 'deleted') {
+      currentUserState.set(userId, 'main_menu');
+      //Разблокировка пользователя
+      await User.findOneAndUpdate({ telegramId: userId }, { $set: { globalUserState: 'active', blockReason: '', isBlocked: false, blockDetails: {} } });
+      bot.sendMessage(chatId, i18n.__('main_menu_message', { supportBot: BOT_NAMES.SUPPORT }), {
+        reply_markup: {
+          keyboard: i18n.__('main_menu_buttons'),
+          resize_keyboard: true
+        },
+        parse_mode: 'HTML',
+      });
     } else {
       console.log('User already exists:', existingUser);
     }
@@ -166,6 +177,7 @@ bot.on('callback_query', async (callbackQuery) => {
           inline_keyboard: [
             [ { text: i18n.__('select_english'), callback_data: 'select_language_en' }],
             [ { text: i18n.__('select_russian'), callback_data: 'select_language_ru' }],
+            //Добавить дургие языки по аналогии
           ],
         },
       });
@@ -176,9 +188,21 @@ bot.on('callback_query', async (callbackQuery) => {
       );
       console.log('User state is "registration_process":', updatedUser);
 
-    } else if ('select_language_en' === data || 'select_language_ru' === data) {
+    } else if (['select_language_en', 'select_language_ru', 'select_language_ba'].includes(data)) {
       // Обработка выбора языка
-      const language = data === 'select_language_en' ? 'en' : 'ru';
+      let language;
+      switch(data) {
+          case 'select_language_en':
+              language = 'en';
+              break;
+          case 'select_language_ru':
+              language = 'ru';
+              break;
+          case 'select_language_ba':
+              language = 'ba';
+              break;
+          //Добавить дургие языки по аналогии
+      }
       i18n.setLocale(language);
 
       const updatedUser = await User.findOneAndUpdate(
@@ -709,13 +733,14 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
               },
               parse_mode: 'HTML',
             });
-          } else if (msg.text === BUTTONS.INTERFACE_LANGUAGE.en || msg.text === BUTTONS.INTERFACE_LANGUAGE.ru) {
+          } else if (Object.values(BUTTONS.INTERFACE_LANGUAGE).includes(msg.text)) {
             currentUserState.set(userId, 'select_language');
             bot.sendMessage(chatId, i18n.__('select_language_message'), {
               reply_markup: {
                 inline_keyboard: [
                   [ { text: i18n.__('select_english'), callback_data: 'select_language_en' }],
                   [ { text: i18n.__('select_russian'), callback_data: 'select_language_ru' }],
+                  //Добавить дургие языки по аналогии
                 ],
               },
             });
