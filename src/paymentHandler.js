@@ -60,7 +60,7 @@ export async function createPaymentForUser(subscriptionType, userId, chatId, bot
     }
 }
 
-export async function getPaymentInfo() {
+export async function getPaymentInfo(orderId) {
         try {
           const response = await axios.get(url, {
               params: {

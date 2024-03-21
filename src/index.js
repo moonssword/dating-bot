@@ -521,7 +521,6 @@ bot.on('callback_query', async (callbackQuery) => {
         })
       };
       bot.sendMessage(chatId, i18n.__('messages.select_subscription'), options);
-      await getPaymentInfo();
 
     } else if (action === 'select_subscription') {
       if (targetUserId === 'cancel_subscriptions') {
