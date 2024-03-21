@@ -126,7 +126,8 @@
 		"report_details": "✅ Please specify the reason for the complaint",
 		"report_sent": "❗ Your report against user {{user}} has been sent",
 		"select_subscription": "💎 Premium unlocks unlimited likes, viewing users who liked you, and ad-free experience",
-		"follow_link_to_pay": "Please follow the <a href='{{url}}'>link</a> to pay"
+		"follow_link_to_pay": "Please follow the <a href='{{url}}'>link</a> to pay",
+		"payment_description": "Premium subscription for %{duration} days"
 	},
 	"buttons": {
 		"delete_match_button": "❌ Delete",

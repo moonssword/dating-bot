@@ -13,9 +13,11 @@
   "dependencies": {
     "@a2seven/yoo-checkout": "^1.1.4",
     "@vladmandic/face-api": "^1.7.13",
+    "aaio.js": "^1.0.9",
     "aws-sdk": "^2.1539.0",
     "axios": "^0.24.0",
     "canvas": "^2.11.2",
+    "crypto-js": "^4.2.0",
     "dotenv": "^16.3.1",
     "express": "^4.17.1",
     "face-api.js": "^0.22.2",

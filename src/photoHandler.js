@@ -253,11 +253,12 @@ async function uploadPhotoToS3(buffer, filename) {
     }
 }
 
+// Функция для размытия фото
 async function blurImage(buffer) {
     try {
         const imageBuffer = await sharp(buffer)
             .resize(300) // Размер, на который вы хотите изменить изображение
-            .blur(15) // Значение размытия
+            .blur(30) // Значение размытия
             .toBuffer();
 
         return imageBuffer;

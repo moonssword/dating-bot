@@ -9,7 +9,7 @@ import { handlePhoto } from './photoHandler.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { BOT_NAMES, BUTTONS, URLS } from './constants.js';
-import { createPaymentForUser } from './paymentHandler.js';
+import { createPaymentForUser, getPaymentInfo } from './paymentHandler.js';
 import moment from 'moment';
 
 process.env.NTBA_FIX_319 = 1;
@@ -511,7 +511,7 @@ bot.on('callback_query', async (callbackQuery) => {
       const options = {
         reply_markup: JSON.stringify({
           inline_keyboard: [
-            /*[{ text: i18n.__('buttons.day'), callback_data: `select_subscription:day` }],*/
+            [{ text: i18n.__('buttons.day'), callback_data: `select_subscription:day` }],
             [{ text: i18n.__('buttons.week'), callback_data: `select_subscription:week` }],
             [{ text: i18n.__('buttons.month'), callback_data: `select_subscription:month` }],
             [{ text: i18n.__('buttons.6month'), callback_data: `select_subscription:6month` }],
@@ -521,12 +521,14 @@ bot.on('callback_query', async (callbackQuery) => {
         })
       };
       bot.sendMessage(chatId, i18n.__('messages.select_subscription'), options);
+      await getPaymentInfo();
+
     } else if (action === 'select_subscription') {
       if (targetUserId === 'cancel_subscriptions') {
         bot.deleteMessage(chatId, messageId);
         return;
       }
-      const paymentUrl = await createPaymentForUser(targetUserId, userId, chatId, bot);  //Передача subscriptionType через targetUserId 
+      const paymentUrl = await createPaymentForUser(targetUserId, userId, chatId, bot, i18n);  //Передача subscriptionType через targetUserId 
       if (paymentUrl) {
         bot.editMessageText(i18n.__('messages.follow_link_to_pay', { url: paymentUrl }), {
           chat_id: chatId,
@@ -537,7 +539,8 @@ bot.on('callback_query', async (callbackQuery) => {
               [{ text: i18n.__('buttons.return_subscriptions'), callback_data: 'buy_premium' }],
             ]
           },
-          parse_mode: 'HTML'
+          parse_mode: 'HTML',
+          disable_web_page_preview: true
         });
       }
     }

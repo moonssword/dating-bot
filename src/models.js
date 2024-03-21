@@ -161,11 +161,17 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: false,
     },
-    paymentStatus: {
-      type: String,
-      enum: ['pending', 'completed', 'failed', 'not_required'],
-      default: 'not_required',
-    },
+    orders: [
+      {
+        orderId: { type: String },
+        paymentStatus: {
+            type: String,
+            enum: ['in_process', 'success', 'expired', 'hold', 'not_required'],
+            default: 'not_required',
+        },
+        amount: { type: Number }
+      }
+    ],
     features: {
       unlimitedLikes: {
         type: Boolean,
