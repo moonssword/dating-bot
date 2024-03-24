@@ -152,10 +152,7 @@ const userSchema = new mongoose.Schema({
       default: Date.now,
     },
     endDate: {
-      type: Date,
-      required: function() {
-        return this.subscriptionType !== 'basic';
-      }
+      type: Date
     },
     isActive: {
       type: Boolean,
@@ -164,12 +161,17 @@ const userSchema = new mongoose.Schema({
     orders: [
       {
         orderId: { type: String },
+        invoiceId: { type: String },
         paymentStatus: {
             type: String,
             enum: ['in_process', 'success', 'expired', 'hold', 'not_required'],
             default: 'not_required',
         },
-        amount: { type: Number }
+        amount: { type: Number },
+        currency: { type: String },
+        method: { type: String },
+        email: { type: String },
+        createdAt: { type: Date, default: Date.now }
       }
     ],
     features: {

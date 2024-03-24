@@ -46,7 +46,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
         const userId = msg.from.id;
         const chatId = msg.chat.id;
         const existingUser = await User.findOne({ telegramId: userId });
-        console.log(msg);
+
         if (!msg.photo || msg.photo.length === 0) {
             const savedMessage = await bot.sendMessage(chatId, i18n.__('wrong_photo_format'));
             setTimeout(async () => {
@@ -213,7 +213,7 @@ export async function handlePhoto (bot, currentUserState, i18n, msg, User, UserP
                         currentUserState.set(userId, 'my_profile');
                         let aboutMeText = updatedProfile.aboutMe ? `<blockquote><i>${updatedProfile.aboutMe}</i></blockquote>` : '';
                         const genderText = updatedProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
-                        await bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
+                        await bot.sendPhoto(chatId, `${URLS.S3}${updatedProfile.profilePhoto.photoPath}`, {
                             caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n 🌍${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${genderText}\n${aboutMeText}`,
                             reply_markup: {
                               keyboard: i18n.__('myprofile_buttons'),
@@ -246,7 +246,7 @@ async function uploadPhotoToS3(buffer, filename) {
     try {
         await s3.upload(s3Params).promise();
         console.log('Photo successfully uploaded to S3');
-        return `${URLS.S3}${s3Key}`;
+        return s3Key;
     } catch (error) {
         console.error('Error uploading photo to S3:', error);
         throw new Error('Error uploading photo to S3');

@@ -1,5 +1,6 @@
 import { Subscriptions } from './models.js';
 import mongoose from 'mongoose';
+import { botForSendPaymentNotification } from '../src/index.js';
 
 mongoose.connect('mongodb://localhost:27017/userdata')
 .then(() => console.log('Connected to MongoDB for checkSubscription'))
@@ -13,17 +14,18 @@ async function checkSubscriptionStatus() {
       if (subscription.endDate < Date.now()) { // Если подписка истекла
         await Subscriptions.findByIdAndUpdate(subscription._id, {
           $set: {
-            subscriptionType: 'basic', // Переход на базовую подписку
-            isActive: false, // Установка статуса активности на false
+            subscriptionType: 'basic',
+            isActive: false,
             features: {
                 unlimitedLikes: false,
                 seeWhoLikesYou: false,
                 adFree: false
                 },
             startDate: Date.now(),
+            endDate: Date.now()
           }
         });
-        console.log(`Subsciption for ${subscription.telegramId} updated`);
+        console.log(`Subsciption for ${subscription.telegramId} checked`);
       }
     }
   } catch (error) {
@@ -32,4 +34,72 @@ async function checkSubscriptionStatus() {
 }
 
 // Запуск функции проверки статуса подписки через определенный интервал времени (в мс)
-setInterval(checkSubscriptionStatus, 60 * 1000);
+setInterval(checkSubscriptionStatus, 24 * 60 * 60 * 1000);
+
+//Функция обновления подписки после оповещения об оплате
+export async function updateSubscription(orderId, newData) {
+  try {
+    let days;
+    switch (newData.amount) {
+      case "200.00":
+        days = 7;
+        break;
+      case "400.00":
+        days = 30;
+        break;
+      case "1600.00":
+        days = 180;
+        break;
+      case "2800.00":
+        days = 365;
+        break;
+      default:
+        days = 0;
+        break;
+    }    
+
+    const newEndDate = new Date();
+    newEndDate.setDate(newEndDate.getDate() + days);
+    
+    const subscription = await Subscriptions.findOneAndUpdate(
+      { 'orders.orderId': orderId },
+      {
+        $set: {
+          'orders.$.invoiceId': newData.invoiceId,
+          'orders.$.paymentStatus': newData.paymentStatus,
+          'orders.$.amount': newData.amount,
+          'orders.$.currency': newData.currency,
+          'orders.$.method': newData.method,
+          'orders.$.email': newData.email,
+          subscriptionType: 'premium',
+          isActive: true,
+          features: {
+              unlimitedLikes: true,
+              seeWhoLikesYou: true,
+              adFree: true
+              },
+          startDate: Date.now(),
+          endDate: newEndDate //Добавить логику продления существующей подписки
+        }
+      },
+      { new: true }
+    );
+    
+    //Вызов функции отправки сообщения пользователю и админу об успешной оплате
+    const userId = subscription.telegramId;
+    await botForSendPaymentNotification(userId, days);
+
+    if (!subscription) {
+      console.log(`Subscription ${orderId} not found`);
+      return null;
+    }
+    console.log(`Subsciption for ${subscription.telegramId} has been successfully paid before ${subscription.endDate}.`);
+    return subscription;
+    
+  } catch (error) {
+    console.error('Error updating subscription:', error);
+    return null;
+  }
+}
+
+export default { updateSubscription };

@@ -13,7 +13,7 @@ const merchantId = process.env.AAIO_MERCHANT_ID;
 const client = new Client(apiKey);
 const merchant = client.createMerchant(merchantId, secretKey1);
 
-export async function createPaymentForUser(subscriptionType, userId, chatId, bot, i18n) {
+export async function createPaymentURL(subscriptionType, userId, chatId, bot, i18n) {
 
     const subscriptionPrices = {
       'week': { value: 200.00, duration: '7' },
@@ -32,7 +32,7 @@ export async function createPaymentForUser(subscriptionType, userId, chatId, bot
       //method: 'cards_ru',
       desc: i18n.__('messages.payment_description', { duration: subscription.duration })
     }
-
+    //Генерация ссылки для оплаты и добавление записи в схему Subscriptions
     try {
       const paymentURL = await merchant.createPayment(amount, order_id, currency, options);
       
@@ -43,7 +43,8 @@ export async function createPaymentForUser(subscriptionType, userId, chatId, bot
             orders: {
               orderId: order_id,
               paymentStatus: 'in_process',
-              amount: amount
+              amount: amount,
+              createdAt: Date.now()
             }
           }
         },
@@ -74,11 +75,11 @@ export async function getPaymentInfo(orderId) {
           });
           return response.data;
       } catch (error) {
-          console.error('Произошла ошибка:', error.message);
+          console.error('Произошла ошибка getPaymentInfo:', error.message);
       }
 }
 
-export default { createPaymentForUser, getPaymentInfo };
+export default { createPaymentURL, getPaymentInfo };
 
 
 

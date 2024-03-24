@@ -9,15 +9,15 @@ import { handlePhoto } from './photoHandler.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { BOT_NAMES, BUTTONS, URLS } from './constants.js';
-import { createPaymentForUser, getPaymentInfo } from './paymentHandler.js';
+import { createPaymentURL, getPaymentInfo } from './paymentHandler.js';
 import moment from 'moment';
 
 process.env.NTBA_FIX_319 = 1;
 process.env.NTBA_FIX_350 = 0;
 
 mongoose.connect('mongodb://localhost:27017/userdata')
-.then(() => console.log('Connected to MongoDB'))
-.catch((error) => console.error('Connection to MongoDB failed:', error));
+.then(() => console.log('Connected to MongoDB from index.js'))
+.catch((error) => console.error('Connection to MongoDBfrom index.js failed:', error));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -84,9 +84,8 @@ bot.onText(/\/start/, async (msg) => {
         telegramId: createdUser.telegramId,
         subscriptionType: 'basic',
         startDate: Date.now(),
-        // endDate не требуется для базовой подписки, определяется условием в схеме
-        isActive: true,
-        paymentStatus: 'not_required',
+        endDate: Date.now(),
+        isActive: false,
         features: {
           unlimitedLikes: false,
           seeWhoLikesYou: false,
@@ -511,7 +510,7 @@ bot.on('callback_query', async (callbackQuery) => {
       const options = {
         reply_markup: JSON.stringify({
           inline_keyboard: [
-            [{ text: i18n.__('buttons.day'), callback_data: `select_subscription:day` }],
+            //[{ text: i18n.__('buttons.day'), callback_data: `select_subscription:day` }],
             [{ text: i18n.__('buttons.week'), callback_data: `select_subscription:week` }],
             [{ text: i18n.__('buttons.month'), callback_data: `select_subscription:month` }],
             [{ text: i18n.__('buttons.6month'), callback_data: `select_subscription:6month` }],
@@ -527,7 +526,7 @@ bot.on('callback_query', async (callbackQuery) => {
         bot.deleteMessage(chatId, messageId);
         return;
       }
-      const paymentUrl = await createPaymentForUser(targetUserId, userId, chatId, bot, i18n);  //Передача subscriptionType через targetUserId 
+      const paymentUrl = await createPaymentURL(targetUserId, userId, chatId, bot, i18n);  //Передача subscriptionType через targetUserId 
       if (paymentUrl) {
         bot.editMessageText(i18n.__('messages.follow_link_to_pay', { url: paymentUrl }), {
           chat_id: chatId,
@@ -1189,6 +1188,7 @@ async function sendMatchProfile(chatId, matchProfile, userProfile, messageId) {
 
     const previousCallbackData = currentMatchIndex > 0 ? 'previous_match_button' : 'first_match_button';
     const nextCallbackData = currentMatchIndex < userProfile.matches.length - 1 ? 'next_match_button' : 'last_match_button';
+    const fullPhotoPath = `${URLS.S3}${matchProfile.profilePhoto.photoPath}`;
 
     const inlineKeyboardMain = {
       inline_keyboard: [
@@ -1206,7 +1206,7 @@ async function sendMatchProfile(chatId, matchProfile, userProfile, messageId) {
     // Проверяем наличие messageId перед вызовом editMessageMedia
     if (messageId) {
       await bot.editMessageMedia(
-        { type: 'photo', media: matchProfile.profilePhoto.photoPath,
+        { type: 'photo', media: fullPhotoPath,
           caption: captionInfo,
           parse_mode: 'HTML',
         },
@@ -1215,7 +1215,7 @@ async function sendMatchProfile(chatId, matchProfile, userProfile, messageId) {
         });
 
     } else {
-        await bot.sendPhoto(chatId, matchProfile.profilePhoto.photoPath, {
+        await bot.sendPhoto(chatId, fullPhotoPath, {
           caption: captionInfo,
           reply_markup: inlineKeyboardMain,
           parse_mode: 'HTML',
@@ -1240,7 +1240,7 @@ async function sendMatchNotification(likedCandidateProfile, userProfile, i18n, U
     await likedCandidateProfile.save();
 
     // Отправить уведомление об успешном совпадении пользователю
-    await bot.sendPhoto(userProfile.telegramId, likedCandidateProfile.profilePhoto.photoPath, {
+    await bot.sendPhoto(userProfile.telegramId, `${URLS.S3}${likedCandidateProfile.profilePhoto.photoPath}`, {
       caption: `${i18n.__('match_found_message')}\n\n${likedCandidateProfile.profileName}: ${i18n.__('candidate_quote_message')}`,
       reply_markup: {
         keyboard: i18n.__('viewing_match_buttons'),
@@ -1263,7 +1263,7 @@ async function sendMatchNotification(likedCandidateProfile, userProfile, i18n, U
     const likedCandidateUser = await User.findOne({ telegramId: likedCandidateProfile.telegramId });
     const likedCandidateLanguageCode = likedCandidateUser.languageCode;
     i18n.setLocale(likedCandidateLanguageCode);
-    await bot.sendPhoto(likedCandidateProfile.telegramId, userProfile.profilePhoto.photoPath, {
+    await bot.sendPhoto(likedCandidateProfile.telegramId, `${URLS.S3}${userProfile.profilePhoto.photoPath}`, {
       caption: `${i18n.__('match_found_message')}\n\n${userProfile.profileName}: ${i18n.__('candidate_quote_message')}`,
       reply_markup: {
         inline_keyboard: [
@@ -1283,7 +1283,7 @@ async function sendMatchNotification(likedCandidateProfile, userProfile, i18n, U
 async function sendMyProfile(chatId, userProfile) {
   let aboutMeText = userProfile.aboutMe ? `<blockquote><i>${userProfile.aboutMe}</i></blockquote>` : '';
   const genderText = userProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
-  bot.sendPhoto(chatId, userProfile.profilePhoto.photoPath, {
+  bot.sendPhoto(chatId, `${URLS.S3}${userProfile.profilePhoto.photoPath}`, {
     caption: `${userProfile.profileName}, ${userProfile.age}\n🏠${userProfile.location.locality}, ${userProfile.location.country}\n${genderText}\n${aboutMeText}`,
     reply_markup: {
       keyboard: i18n.__('myprofile_buttons'),
@@ -1297,7 +1297,7 @@ async function sendMyProfile(chatId, userProfile) {
 async function sendProfileForModeration(chatId, userProfile) {
   let aboutMeText = userProfile.aboutMe ? `<blockquote><i>${userProfile.aboutMe}</i></blockquote>` : '';
   const genderText = userProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
-  bot.sendPhoto(chatId, userProfile.profilePhoto.photoPath, {
+  bot.sendPhoto(chatId, `${URLS.S3}${userProfile.profilePhoto.photoPath}`, {
     caption: `${userProfile.profileName}, ${userProfile.age}\n🏠${userProfile.location.locality}, ${userProfile.location.country}\n${genderText}\n${aboutMeText}`,
     reply_markup:  {
       inline_keyboard: [
@@ -1314,7 +1314,7 @@ async function sendProfileForModeration(chatId, userProfile) {
 async function sendMyUpdatedProfile(chatId, updatedProfile) {
   let aboutMeText = updatedProfile.aboutMe ? `<blockquote><i>${updatedProfile.aboutMe}</i></blockquote>` : '';
   const genderText = updatedProfile.gender === 'male' ? i18n.__('select_male') : i18n.__('select_female');
-  bot.sendPhoto(chatId, updatedProfile.profilePhoto.photoPath, {
+  bot.sendPhoto(chatId, `${URLS.S3}${updatedProfile.profilePhoto.photoPath}`, {
     caption: `${updatedProfile.profileName}, ${updatedProfile.age}\n🏠${updatedProfile.location.locality}, ${updatedProfile.location.country}\n${genderText}\n${aboutMeText}`,
     reply_markup: {
       keyboard: i18n.__('myprofile_buttons'),
@@ -1357,7 +1357,7 @@ async function sendCandidateProfile(chatId, candidateProfile, userProfile, userS
     const currentState = currentUserState.get(userProfile.telegramId);
     const canViewProfile = currentState === 'viewing_profiles' || ( currentState === 'likes_you' && userSubscriptions.isActive && userSubscriptions.features.seeWhoLikesYou === true );
     if (canViewProfile) {
-      await bot.sendPhoto(chatId, candidateProfile.profilePhoto.photoPath, {
+      await bot.sendPhoto(chatId, `${URLS.S3}${candidateProfile.profilePhoto.photoPath}`, {
         caption: `${candidateProfile.profileName}, ${candidateProfile.age}\n${i18n.__('candidate_lives_message')}${candidateProfile.location.locality}, ${candidateProfile.location.country}${distanceText}\n${getLastActivityStatus(candidateProfile.lastActivity)}\n${aboutMeText}`,
         reply_markup: {
           keyboard: i18n.__('viewing_profiles_buttons'),
@@ -1373,7 +1373,7 @@ async function sendCandidateProfile(chatId, candidateProfile, userProfile, userS
           resize_keyboard: true
         }});
       //Отправка текста с кнопкой для оплаты Премиум подписки
-      await bot.sendPhoto(chatId, candidateProfile.profilePhoto.photoBlurredPath, {
+      await bot.sendPhoto(chatId, `${URLS.S3}${candidateProfile.profilePhoto.photoBlurredPath}`, {
         caption: `${candidateProfile.profileName}`,
         reply_markup: {
           inline_keyboard:  [
@@ -1428,13 +1428,13 @@ async function sendLikeNotificationPhoto(likedCandidateProfileTelegramId, userPr
   try {
     i18n.setLocale(likedCandidateLanguageCode);
     if (isPremiumUser) {
-      bot.sendPhoto(likedCandidateProfileTelegramId, userProfile.profilePhoto.photoPath, {
+      bot.sendPhoto(likedCandidateProfileTelegramId, `${URLS.S3}${userProfile.profilePhoto.photoPath}`, {
         caption: `${userProfile.profileName},${userProfile.age}\n${i18n.__('user_liked_premium_message')}`,
         parse_mode: 'HTML',
         protect_content: true,
       });
     } else {
-      bot.sendPhoto(likedCandidateProfileTelegramId, userProfile.profilePhoto.photoBlurredPath, {
+      bot.sendPhoto(likedCandidateProfileTelegramId, `${URLS.S3}${userProfile.profilePhoto.photoBlurredPath}`, {
         caption: `${i18n.__('user_liked_message')}`,
         //Отправить inline-кнопку (возможность просматривать лайки, реализация позже)
         parse_mode: 'HTML',
@@ -1512,3 +1512,10 @@ function getLastActivityStatus(lastActivity) {
     return i18n.__('more_than_month_message');
   }
 }
+
+//Функция отправки сообщения пользователю и админу об успешной оплате
+export async function botForSendPaymentNotification(chatId, days) {
+  await bot.sendMessage(chatId, i18n.__('messages.subscription_success_user', { duration: days }));
+  await bot.sendMessage(process.env.ADMIN_CHAT_ID, i18n.__('messages.subscription_success_admin', { duration: days, userId: chatId }));
+}
+export default { botForSendPaymentNotification };
