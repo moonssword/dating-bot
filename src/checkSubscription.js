@@ -1,6 +1,6 @@
 import { Subscriptions } from './models.js';
 import mongoose from 'mongoose';
-import { botForSendPaymentNotification } from '../src/index.js';
+// import { botForSendPaymentNotification } from '../src/index.js';
 
 mongoose.connect('mongodb://localhost:27017/userdata')
 .then(() => console.log('Connected to MongoDB for checkSubscription'))
@@ -34,7 +34,7 @@ async function checkSubscriptionStatus() {
 }
 
 // Запуск функции проверки статуса подписки через определенный интервал времени (в мс)
-setInterval(checkSubscriptionStatus, 24 * 60 * 60 * 1000);
+setInterval(checkSubscriptionStatus, 60 * 1000);
 
 //Функция обновления подписки после оповещения об оплате
 export async function updateSubscription(orderId, newData) {
@@ -72,6 +72,7 @@ export async function updateSubscription(orderId, newData) {
           'orders.$.currency': newData.currency,
           'orders.$.method': newData.method,
           'orders.$.email': newData.email,
+          'orders.$.updatedAt': Date.now(),
           subscriptionType: 'premium',
           isActive: true,
           features: {
@@ -86,9 +87,9 @@ export async function updateSubscription(orderId, newData) {
       { new: true }
     );
     
-    //Вызов функции отправки сообщения пользователю и админу об успешной оплате
-    const userId = updatedSubscription.telegramId;
-    await botForSendPaymentNotification(userId, days);
+    // //Вызов функции отправки сообщения пользователю и админу об успешной оплате
+    // const userId = updatedSubscription.telegramId;
+    // await botForSendPaymentNotification(userId, days);
 
     if (!updatedSubscription) {
       console.log(`Subscription ${orderId} not found`);

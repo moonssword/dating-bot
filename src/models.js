@@ -171,7 +171,8 @@ const userSchema = new mongoose.Schema({
         currency: { type: String },
         method: { type: String },
         email: { type: String },
-        createdAt: { type: Date, default: Date.now }
+        createdAt: { type: Date, default: Date.now },
+        updatedAt: { type: Date, default: Date.now }
       }
     ],
     features: {

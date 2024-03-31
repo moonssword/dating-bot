@@ -9,7 +9,7 @@ import { handlePhoto } from './photoHandler.js';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { BOT_NAMES, BUTTONS, URLS } from './constants.js';
-import { createPaymentURL, getPaymentInfo } from './paymentHandler.js';
+import { createPaymentURL, checkPayment, getPaymentInfo } from './paymentHandler.js';
 import moment from 'moment';
 
 process.env.NTBA_FIX_319 = 1;
@@ -83,7 +83,7 @@ bot.onText(/\/start/, async (msg) => {
       // Создать коллекцию подписки пользлвателя
       const currentDate = new Date();
       const endDate = new Date(currentDate);
-      endDate.setDate(endDate.getDate() + 7); // Расчет дней для премиум промо подписки новым пользователям
+      endDate.setDate(endDate.getDate() + 14); // Расчет дней для премиум промо подписки новым пользователям
 
       const initialSubscriptionData = {
         user_id: createdUser._id,
@@ -165,7 +165,7 @@ bot.on('callback_query', async (callbackQuery) => {
   const messageId = callbackQuery.message.message_id;
   const userId = callbackQuery.from.id;
   const data = callbackQuery.data;
-  const [action, targetUserId, reason] = data.split(':'); //Для модерации
+  const [action, targetUserId, reason] = data.split(':'); //Для модерации. targetUserId используется также в других местах, не только для идентификации по id
   const existingUser = await User.findOne({ telegramId: userId });
   const userProfile = await Profile.findOne({ telegramId: userId });
   await updateUserLastActivity(userId);
@@ -512,7 +512,9 @@ bot.on('callback_query', async (callbackQuery) => {
           }});
       }
     } else if (data ==='buy_premium') {
+
       bot.deleteMessage(chatId, messageId);
+
       const options = {
         reply_markup: JSON.stringify({
           inline_keyboard: [
@@ -525,21 +527,43 @@ bot.on('callback_query', async (callbackQuery) => {
           ]
         })
       };
+
       bot.sendMessage(chatId, i18n.__('messages.select_subscription'), options);
 
     } else if (action === 'select_subscription') {
+
       if (targetUserId === 'cancel_subscriptions') {
         bot.deleteMessage(chatId, messageId);
         return;
       }
-      const paymentUrl = await createPaymentURL(targetUserId, userId, chatId, bot, i18n);  //Передача subscriptionType через targetUserId 
+
+      const [paymentUrl, orderId] = await createPaymentURL(targetUserId, userId, chatId, bot, i18n);  //Передача subscriptionType через targetUserId 
+
       if (paymentUrl) {
-        bot.editMessageText(i18n.__('messages.follow_link_to_pay', { url: paymentUrl }), {
+
+        let subscriptionPrice;
+        let subscriptionDuration;
+        if (targetUserId === 'week') {
+          subscriptionPrice = 200;
+          subscriptionDuration = 7;
+        } else if (targetUserId === 'month') {
+          subscriptionPrice = 400;
+          subscriptionDuration = 30;
+        } else if (targetUserId === '6month') {
+          subscriptionPrice = 1600;
+          subscriptionDuration = 180;
+        } else if (targetUserId === 'year') {
+          subscriptionPrice = 2800;
+          subscriptionDuration = 365;
+        }
+
+        bot.editMessageText(i18n.__('messages.follow_link_to_pay', { url: paymentUrl, duration: subscriptionDuration, price: subscriptionPrice }), {
           chat_id: chatId,
           message_id: messageId,
           reply_markup: {
             inline_keyboard: [
               [{ text: i18n.__('buttons.payment_proceed'), url: paymentUrl }],
+              [{ text: i18n.__('buttons.user_paid'), callback_data: `user_press_paid:${orderId}` }],
               [{ text: i18n.__('buttons.return_subscriptions'), callback_data: 'buy_premium' }],
             ]
           },
@@ -547,6 +571,8 @@ bot.on('callback_query', async (callbackQuery) => {
           disable_web_page_preview: true
         });
       }
+    } else if (action === 'user_press_paid') {
+      checkPayment(targetUserId, chatId, bot, i18n);
     }
 
   } catch (err) {
@@ -1519,9 +1545,9 @@ function getLastActivityStatus(lastActivity) {
   }
 }
 
-//Функция отправки сообщения пользователю и админу об успешной оплате
-export async function botForSendPaymentNotification(chatId, days) {
-  await bot.sendMessage(chatId, i18n.__('messages.subscription_success_user', { duration: days }));
-  await bot.sendMessage(process.env.ADMIN_CHAT_ID, i18n.__('messages.subscription_success_admin', { duration: days, userId: chatId }));
-}
-export default { botForSendPaymentNotification };
+// //Функция отправки сообщения пользователю и админу об успешной оплате
+// export async function botForSendPaymentNotification(chatId, days) {
+//   await bot.sendMessage(chatId, i18n.__('messages.subscription_success_user'));
+//   await bot.sendMessage(process.env.ADMIN_CHAT_ID, i18n.__('messages.subscription_success_admin', { duration: days, userId: chatId }));
+// }
+// export default { botForSendPaymentNotification };

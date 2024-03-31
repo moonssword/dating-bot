@@ -4,6 +4,7 @@ import { Client } from 'aaio.js';
 import axios from 'axios';
 import 'dotenv/config';
 import { Subscriptions } from './models.js';
+import { BOT_NAMES, BUTTONS, URLS } from './constants.js';
 
 const url = 'https://aaio.so/api/info-pay';
 const apiKey = process.env.AAIO_API_KEY;
@@ -44,7 +45,8 @@ export async function createPaymentURL(subscriptionType, userId, chatId, bot, i1
               orderId: order_id,
               paymentStatus: 'in_process',
               amount: amount,
-              createdAt: Date.now()
+              createdAt: Date.now(),
+              updatedAt: Date.now()
             }
           }
         },
@@ -52,13 +54,39 @@ export async function createPaymentURL(subscriptionType, userId, chatId, bot, i1
       );
       console.log('User subscription updated:', updateSubscriptions);      
       
-      return paymentURL;
+      return [paymentURL, order_id];
 
     } catch (error) {
       console.error(error);
       bot.sendMessage(chatId, i18n.__('messages.error_subscription_create_payment'));
       return null;
     }
+}
+
+// Функция для проверки платежа в БД
+export async function checkPayment(orderId, chatId, bot, i18n, attempts = 0, transactionNotFoundSent = false) {
+
+  try {
+    const subscription = await Subscriptions.findOne({ 'orders.orderId': orderId, 'orders.paymentStatus': 'success' });
+    const order = subscription.orders.find(order => order.orderId === orderId && order.paymentStatus === 'success');
+
+    if (order) {
+      await bot.sendMessage(chatId, i18n.__('messages.subscription_success_user'));
+      await bot.sendMessage(process.env.ADMIN_CHAT_ID, i18n.__('messages.subscription_success_admin', { amount: order.amount, userId: chatId }));
+    } else {
+      if (!transactionNotFoundSent) {
+        await bot.sendMessage(chatId, i18n.__('messages.transaction_not_found', { supportBot: BOT_NAMES.SUPPORT }));
+        transactionNotFoundSent = true;
+      }
+      if (attempts < 10) { // Проверять платеж в течение 5 минут (10 попыток по 30 секунд)
+        setTimeout(() => {
+          checkPayment(orderId, chatId, bot, i18n, attempts + 1, transactionNotFoundSent); // Повторная проверка через 30 секунд
+        }, 30000); // 30 секунд
+      }
+    }
+  } catch (error) {
+    console.error('Произошла ошибка checkPayment:', error.message);
+  }
 }
 
 // Функция для отправки запроса на получение информации о платеже
@@ -80,7 +108,7 @@ export async function getPaymentInfo(orderId) {
       }
 }
 
-export default { createPaymentURL, getPaymentInfo };
+export default { createPaymentURL, checkPayment, getPaymentInfo };
 
 
 

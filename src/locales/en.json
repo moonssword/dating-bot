@@ -126,11 +126,12 @@
 		"report_details": "✅ Please specify the reason for the complaint",
 		"report_sent": "❗ Your report against user {{user}} has been sent",
 		"select_subscription": "💎 Premium unlocks unlimited likes, viewing users who liked you, and ad-free experience",
-		"follow_link_to_pay": "Please follow the <a href='{{url}}'>link</a> to pay",
+		"follow_link_to_pay": "Premium for {{duration}} days - {{subscriptionPrice}}\nPlease <a href='{{url}}'>pay the bill</a> within one hour. Then press the «I paid» button.",
 		"payment_description": "Premium subscription for {{duration}} days",
-		"subscription_success_user": "🎆 Congratulations! Your subscription has been successfully paid. You are now enjoying our premium features. Subscription duration: {{duration}} days.",
-		"subscription_success_admin": "New subscription payment received. User ID: {{userId}}, duration: {{duration}} days.",
-		"error_subscription_create_payment": "An error occurred while creating the payment. Please try again later."
+		"subscription_success_user": "✅ Your subscription has been successfully paid. You are now enjoying premium features.",
+		"subscription_success_admin": "💸 New subscription payment received. User ID: {{userId}}, amount: {{amount}} rub.",
+		"error_subscription_create_payment": "An error occurred while creating the payment. Please try again later.",
+		"transaction_not_found": "❗️ No paid transactions found. If you believe this is an error, please contact the administrator:{{supportBot}}\n\n⏳The transfer may take up to 5 minutes. If you made the payment just a few seconds ago, please wait a little and check for the transaction again."
 	},
 	"buttons": {
 		"delete_match_button": "❌ Delete",
@@ -152,6 +153,7 @@
 		"year": "3500₽ for 365 days",
 		"return_subscriptions": "⬅️Back",
 		"payment_proceed": "💳Proceed to payment",
-		"cancel_subscriptions": "🚫 Cancel"
+		"cancel_subscriptions": "🚫 Cancel",
+		"user_paid": "✅I paid"
 	}
 }
