@@ -24,7 +24,7 @@
 	"messages": {
 		"main": "Welcome to the support service.\nYou can choose one of the ready-made response options or write to the operator.",
 		"delete_account": "Your account has been marked for deletion and blocked.",
-		"current_subscription": "Current subscription: {{subscriptionType}}\nStatus: {{status}}\nValidity: {{validity}}",
+		"current_subscription": "Current subscription: {{subscriptionType}}\nStatus: {{status}}\nExpires: {{validity}}",
 		"unblock_request_received": "Your request to unblock your account has been received and will be reviewed.",
 		"not_blocked": "🔓 Your account is not currently blocked.",
 		"describe_your_problem": "Please describe your problem and attach screenshots if necessary. We will try to assist you as soon as possible.",

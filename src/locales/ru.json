@@ -171,7 +171,8 @@
 		"follow_link_to_pay": "Пожалуйста, перейдите по <a href='{{url}}'>ссылке</a> для оплаты",
 		"payment_description": "Премиум-подписка на {{duration}} дней",
 		"subscription_success_user": "🎆 Поздравляем! Ваша подписка успешно оплачена. Теперь вы можете пользоваться всеми преимуществами нашего премиум-аккаунта. Длительность подписки: {{duration}} дней.",
-		"subscription_success_admin": "New subscription payment received. User ID: {{userId}}, Subscription duration: {{duration}} days."
+		"subscription_success_admin": "New subscription payment received. User ID: {{userId}}, duration: {{duration}} days.",
+		"error_subscription_create_payment": "Произошла ошибка при создании платежа. Пожалуйста, попробуйте позже."
 	},
 	"buttons": {
 		"delete_match_button": "❌ Удалить",

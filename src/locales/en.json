@@ -129,7 +129,8 @@
 		"follow_link_to_pay": "Please follow the <a href='{{url}}'>link</a> to pay",
 		"payment_description": "Premium subscription for {{duration}} days",
 		"subscription_success_user": "🎆 Congratulations! Your subscription has been successfully paid. You are now enjoying our premium features. Subscription duration: {{duration}} days.",
-		"subscription_success_admin": "New subscription payment received. User ID: {{userId}}, Subscription duration: {{duration}} days."
+		"subscription_success_admin": "New subscription payment received. User ID: {{userId}}, duration: {{duration}} days.",
+		"error_subscription_create_payment": "An error occurred while creating the payment. Please try again later."
 	},
 	"buttons": {
 		"delete_match_button": "❌ Delete",

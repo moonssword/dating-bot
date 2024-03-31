@@ -58,10 +58,11 @@ export async function updateSubscription(orderId, newData) {
         break;
     }    
 
-    const newEndDate = new Date();
-    newEndDate.setDate(newEndDate.getDate() + days);
+    const currentDate = new Date();
+    const subscription = await Subscriptions.findOne({ 'orders.orderId': orderId });
+    const newEndDate = subscription.endDate > currentDate ? new Date(subscription.endDate.setDate(subscription.endDate.getDate() + days)) : new Date(currentDate.setDate(currentDate.getDate() + days));    
     
-    const subscription = await Subscriptions.findOneAndUpdate(
+    const updatedSubscription = await Subscriptions.findOneAndUpdate(
       { 'orders.orderId': orderId },
       {
         $set: {
@@ -86,15 +87,15 @@ export async function updateSubscription(orderId, newData) {
     );
     
     //Вызов функции отправки сообщения пользователю и админу об успешной оплате
-    const userId = subscription.telegramId;
+    const userId = updatedSubscription.telegramId;
     await botForSendPaymentNotification(userId, days);
 
-    if (!subscription) {
+    if (!updatedSubscription) {
       console.log(`Subscription ${orderId} not found`);
       return null;
     }
-    console.log(`Subsciption for ${subscription.telegramId} has been successfully paid before ${subscription.endDate}.`);
-    return subscription;
+    console.log(`Subsciption for ${updatedSubscription.telegramId} has been successfully paid before ${updatedSubscription.endDate.toLocaleDateString()}.`);
+    return updatedSubscription;
     
   } catch (error) {
     console.error('Error updating subscription:', error);

@@ -71,6 +71,7 @@ bot.onText(/\/start/, async (msg) => {
       const createdProfile = await Profile.create(profileData);
       console.log('Profile created for the new user:', createdProfile);
 
+      // Создать коллекцию фото пользователя
       const userPhotoData = {
         user_id: createdUser._id,
         telegramId: createdUser.telegramId,
@@ -79,17 +80,22 @@ bot.onText(/\/start/, async (msg) => {
       const createdUserPhoto = await UserPhoto.create(userPhotoData);
       console.log('UserPhoto collection created for the new user:', createdUserPhoto);
 
+      // Создать коллекцию подписки пользлвателя
+      const currentDate = new Date();
+      const endDate = new Date(currentDate);
+      endDate.setDate(endDate.getDate() + 7); // Расчет дней для премиум промо подписки новым пользователям
+
       const initialSubscriptionData = {
         user_id: createdUser._id,
         telegramId: createdUser.telegramId,
-        subscriptionType: 'basic',
-        startDate: Date.now(),
-        endDate: Date.now(),
-        isActive: false,
+        subscriptionType: 'promo',
+        startDate: currentDate,
+        endDate: endDate,
+        isActive: true,
         features: {
-          unlimitedLikes: false,
-          seeWhoLikesYou: false,
-          adFree: false,
+          unlimitedLikes: true,
+          seeWhoLikesYou: true,
+          adFree: true,
         },
       };
       try {

@@ -56,11 +56,12 @@ export async function createPaymentURL(subscriptionType, userId, chatId, bot, i1
 
     } catch (error) {
       console.error(error);
-      bot.sendMessage(chatId, 'Произошла ошибка при создании платежа. Пожалуйста, попробуйте позже.');
+      bot.sendMessage(chatId, i18n.__('messages.error_subscription_create_payment'));
       return null;
     }
 }
 
+// Функция для отправки запроса на получение информации о платеже
 export async function getPaymentInfo(orderId) {
         try {
           const response = await axios.get(url, {
