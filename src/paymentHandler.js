@@ -63,16 +63,16 @@ export async function createPaymentURL(subscriptionType, userId, chatId, bot, i1
     }
 }
 
-// Функция для проверки платежа в БД
+// Функция для проверки платежа в БД и отправки сообщения пользователю и админу об успешной оплате
 export async function checkPayment(orderId, chatId, bot, i18n, attempts = 0, transactionNotFoundSent = false) {
 
   try {
     const subscription = await Subscriptions.findOne({ 'orders.orderId': orderId, 'orders.paymentStatus': 'success' });
-    const order = subscription.orders.find(order => order.orderId === orderId && order.paymentStatus === 'success');
+    //const order = subscription.orders.find(order => order.orderId === orderId && order.paymentStatus === 'success');
 
-    if (order) {
+    if (subscription) {
       await bot.sendMessage(chatId, i18n.__('messages.subscription_success_user'));
-      await bot.sendMessage(process.env.ADMIN_CHAT_ID, i18n.__('messages.subscription_success_admin', { amount: order.amount, userId: chatId }));
+      await bot.sendMessage(process.env.ADMIN_CHAT_ID, i18n.__('messages.subscription_success_admin', { amount: subscription.amount, userId: chatId }));
     } else {
       if (!transactionNotFoundSent) {
         await bot.sendMessage(chatId, i18n.__('messages.transaction_not_found', { supportBot: BOT_NAMES.SUPPORT }));
@@ -89,7 +89,7 @@ export async function checkPayment(orderId, chatId, bot, i18n, attempts = 0, tra
   }
 }
 
-// Функция для отправки запроса на получение информации о платеже
+// Функция для отправки запроса на получение информации о платеже (незашифрованное соединение)
 export async function getPaymentInfo(orderId) {
         try {
           const response = await axios.get(url, {

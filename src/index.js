@@ -22,7 +22,7 @@ mongoose.connect('mongodb://localhost:27017/userdata')
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const locationDataMap = new Map(); // Создаем Map для временного хранения данных о местоположении
-const currentUserState = new Map(); // Переменная состояния регистрации(state)
+const currentUserState = new Map(); // Переменная для текущего состояния пользователя
 
 i18n.configure({
   locales: ['en', 'ru'],
@@ -168,6 +168,8 @@ bot.on('callback_query', async (callbackQuery) => {
   const [action, targetUserId, reason] = data.split(':'); //Для модерации. targetUserId используется также в других местах, не только для идентификации по id
   const existingUser = await User.findOne({ telegramId: userId });
   const userProfile = await Profile.findOne({ telegramId: userId });
+  const userSubscriptions = await Subscriptions.findOne({ telegramId: userId });
+  const currentState = currentUserState.get(userId);
   await updateUserLastActivity(userId);
 
   //Обработчик совпадений
@@ -482,9 +484,15 @@ bot.on('callback_query', async (callbackQuery) => {
       reportedUser.reports = reportedUser.reports || [];
       reportedUser.reports.push(report);
 
+      // Добавляем пользователя в дизлайкед
       const dislikedProfileTelegramId = reportedUser.telegramId;
       userProfile.dislikedProfiles.push(dislikedProfileTelegramId);
       await userProfile.save();
+
+      //Удаляем у пользователя из массива лайков свой ID
+      const indexToRemove = reportedUserProfile.likedProfiles.indexOf(userId);
+      reportedUserProfile.likedProfiles.splice(indexToRemove, 1);
+      await reportedUserProfile.save();
 
       // Проверка на количество жалоб, если жалоб 10 и более - блокировать аккаунт
       if (reportedUser.reports.length >= 10) {
@@ -498,19 +506,25 @@ bot.on('callback_query', async (callbackQuery) => {
       //Всплывающее уведомление об отправке жалобы
       bot.answerCallbackQuery( callbackQuery.id, {text: i18n.__('messages.report_sent', { user: reportedUserProfile.profileName }), show_alert: false} );
 
-      //Отправка следующего профиля
-      currentUserState.set(userId, 'viewing_profiles');
-      const candidateProfile = await getCandidateProfile(Profile, userProfile);
-      if (candidateProfile) {
-        await sendCandidateProfile(chatId, candidateProfile, userProfile);
-      } else {
-        currentUserState.set(userId, 'main_menu');
-        await bot.sendMessage(chatId, i18n.__('candidate_not_found_message'), {
-          reply_markup: {
-            keyboard: i18n.__('main_menu_buttons'),
-            resize_keyboard: true
-          }});
+      if (currentState === 'report_user') {
+        //Отправка следующего профиля
+        currentUserState.set(userId, 'viewing_profiles');
+        const candidateProfile = await getCandidateProfile(Profile, userProfile);
+        if (candidateProfile) {
+          await sendCandidateProfile(chatId, candidateProfile, userProfile);
+        } else {
+          currentUserState.set(userId, 'main_menu');
+          await bot.sendMessage(chatId, i18n.__('candidate_not_found_message'), {
+            reply_markup: {
+              keyboard: i18n.__('main_menu_buttons'),
+              resize_keyboard: true
+            }});
+        }
+      } else if (currentState === 'report_liked_user') {
+        currentUserState.set(userId, 'likes_you');
+        await sendLikesYouProfiles(chatId, userId, userProfile, userSubscriptions);
       }
+
     } else if (data ==='buy_premium') {
 
       bot.deleteMessage(chatId, messageId);
@@ -718,6 +732,8 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
           const likesYouProfiles = await Profile.find({
             likedProfiles: userProfile.telegramId,
           });
+          const firstOfLikesProfile = likesYouProfiles[0];
+
           if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
             currentUserState.set(userId, 'main_menu');
             bot.sendMessage(chatId, i18n.__('main_menu_message', { supportBot: BOT_NAMES.SUPPORT }), {
@@ -728,8 +744,6 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
               parse_mode: 'HTML',
             });
           } else if (msg.text === BUTTONS.LIKE.en || msg.text === BUTTONS.LIKE.ru) {
-            const firstOfLikesProfile = likesYouProfiles[0];
-
             //Сохранить информацию о лайке
             const likedCandidateProfileTelegramId = firstOfLikesProfile.telegramId;
             userProfile.likedProfiles.push(likedCandidateProfileTelegramId);
@@ -739,14 +753,29 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             await sendMatchNotification(firstOfLikesProfile, userProfile, i18n, User, existingUser);
 
           } else if (msg.text === BUTTONS.DISLIKE.en || msg.text === BUTTONS.DISLIKE.ru) {
-            const firstOfLikesProfile = likesYouProfiles[0];
             const dislikedProfileTelegramId = firstOfLikesProfile.telegramId;
             userProfile.dislikedProfiles.push(dislikedProfileTelegramId);
             await userProfile.save();
 
             await sendLikesYouProfiles(chatId, userId, userProfile, userSubscriptions);
 
-          } if (msg.text === BUTTONS.CONTINUE_VIEWING_BUTTON.en || msg.text === BUTTONS.CONTINUE_VIEWING_BUTTON.ru) {
+          } else if (msg.text === BUTTONS.REPORT.en || msg.text === BUTTONS.REPORT.ru) {
+            currentUserState.set(userId, 'report_liked_user');
+
+            bot.sendMessage(chatId, i18n.__('messages.report_reason', { user: firstOfLikesProfile.profileName }), {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: i18n.__('buttons.fake_profile'), callback_data: `report:${firstOfLikesProfile.telegramId}:fake_profile` }],
+                  [{ text: i18n.__('buttons.sale_goods'), callback_data: `report:${firstOfLikesProfile.telegramId}:sale_goods` }],
+                  [{ text: i18n.__('buttons.minor_user'), callback_data: `report:${firstOfLikesProfile.telegramId}:minor_user` }],
+                  [{ text: i18n.__('buttons.inappropriate_content'), callback_data: `report:${firstOfLikesProfile.telegramId}:inappropriate_content` }],
+                  [{ text: i18n.__('buttons.threats'), callback_data: `report:${firstOfLikesProfile.telegramId}:threats` }],
+                ],
+              },
+              parse_mode: 'HTML',
+            });
+            
+          } else if (msg.text === BUTTONS.CONTINUE_VIEWING_BUTTON.en || msg.text === BUTTONS.CONTINUE_VIEWING_BUTTON.ru) {
             await sendLikesYouProfiles(chatId, userId, userProfile, userSubscriptions);
           }
           break;
@@ -886,6 +915,30 @@ bot.on('message', async (msg) => {  // Обработчик сообщений �
             currentUserState.set(userId, 'viewing_profiles');
             const candidateProfile = await getCandidateProfile(Profile, userProfile);
             await sendCandidateProfile(chatId, candidateProfile, userProfile);
+          } else {
+            const wrongSelected = await bot.sendMessage(chatId, i18n.__('wrong_choise_message'));
+            setTimeout(async () => {
+                try {
+                    await bot.deleteMessage(chatId, wrongSelected.message_id);
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            }, 2000);
+          }
+          break;
+        case 'report_liked_user':
+          if (msg.text === BUTTONS.BACK.en || msg.text === BUTTONS.BACK.ru) {
+            currentUserState.set(userId, 'likes_you');
+            await sendLikesYouProfiles(chatId, userId, userProfile, userSubscriptions);
+          } else {
+            const wrongSelected = await bot.sendMessage(chatId, i18n.__('wrong_choise_message'));
+            setTimeout(async () => {
+                try {
+                    await bot.deleteMessage(chatId, wrongSelected.message_id);
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            }, 2000);
           }
           break;
         case 'viewing_match':
@@ -1544,10 +1597,3 @@ function getLastActivityStatus(lastActivity) {
     return i18n.__('more_than_month_message');
   }
 }
-
-// //Функция отправки сообщения пользователю и админу об успешной оплате
-// export async function botForSendPaymentNotification(chatId, days) {
-//   await bot.sendMessage(chatId, i18n.__('messages.subscription_success_user'));
-//   await bot.sendMessage(process.env.ADMIN_CHAT_ID, i18n.__('messages.subscription_success_admin', { duration: days, userId: chatId }));
-// }
-// export default { botForSendPaymentNotification };

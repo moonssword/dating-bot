@@ -33,8 +33,8 @@ async function checkSubscriptionStatus() {
   }
 }
 
-// Запуск функции проверки статуса подписки через определенный интервал времени (в мс)
-setInterval(checkSubscriptionStatus, 60 * 1000);
+// Запуск функции проверки статуса подписки через определенный интервал времени (в мс) (24 ч)
+setInterval(checkSubscriptionStatus, 24 * 60 * 60 * 1000);
 
 //Функция обновления подписки после оповещения об оплате
 export async function updateSubscription(orderId, newData) {
